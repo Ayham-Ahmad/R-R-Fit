@@ -124,12 +124,14 @@
   padding: 24px 18px;
 }
 
+.sidebar-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .brand-box { gap: 10px; padding-bottom: 18px; }
 .brand-title { overflow-wrap: anywhere; }
 .sidebar-user-name { font-weight: 700; font-size: 0.92rem; }
 .sidebar-user-email { color: var(--text-muted); font-size: 0.76rem; overflow-wrap: anywhere; margin-bottom: 10px; }
 .sidebar-logout { width: 100%; margin-top: 4px; }
-.header-logout { display: none; }
+.brand-logout { display: none; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; flex-shrink: 0; }
+.brand-logout .icon { width: 18px; height: 18px; }
 .nav-btn { gap: 10px; }
 .nav-btn .nav-icon { display: flex; width: 22px; height: 22px; align-items: center; justify-content: center; }
 
@@ -529,9 +531,9 @@
   position: relative;
 }
 
-.auth-topbar { position: absolute; top: 22px; inset-inline-end: 24px; }
+.auth-topbar { position: absolute; top: 22px; inset-inline-end: 24px; display: flex; align-items: center; gap: 12px; }
+.auth-mobile-top-brand { display: none; }
 .auth-card { width: 100%; max-width: 410px; }
-.auth-mobile-brand { display: none; }
 .auth-form { display: flex; flex-direction: column; gap: 15px; animation: fadeUp 0.3s ease; }
 .auth-heading { margin-bottom: 4px; }
 .auth-heading h1 { font-size: 1.8rem; margin-bottom: 5px; }
@@ -634,6 +636,7 @@ html[lang="ar"] .ltr-field { text-align: left; }
 }
 .segmented button.active { background: var(--primary); color: var(--primary-contrast); }
 
+.remember-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--muted); }
 .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; cursor: pointer; }
 .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .switch span {
@@ -1300,21 +1303,24 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   .app-shell { grid-template-columns: 1fr; }
   .sidebar {
     position: static;
+    display: block;
     height: auto;
     overflow: visible;
-    flex-direction: row;
-    align-items: center;
-    gap: 14px;
     padding: 14px 18px;
   }
-  .sidebar > div:first-child { display: flex; align-items: center; flex: 1; min-width: 0; }
+  .sidebar-main { width: 100%; min-width: 0; }
+  .sidebar-brand-row { width: 100%; }
   .brand-box { border-bottom: none; padding-bottom: 0; flex-shrink: 0; }
   .brand-subtitle { display: none; }
-  .nav-list { flex-direction: row; margin-top: 0; flex-wrap: wrap; gap: 4px; }
+  .nav-list { flex-direction: row; margin-top: 10px; flex-wrap: wrap; gap: 4px; }
   .nav-btn { width: auto; padding: 8px 11px; font-size: 0.82rem; }
   .sidebar-footer { display: none; }
-  .top-header { position: static; padding: 16px 20px; }
-  .header-logout { display: inline-flex; }
+  .top-header { position: static; padding: 16px 20px; flex-wrap: nowrap; gap: 10px; }
+  .header-title-area { min-width: 0; }
+  .header-title-area h1,
+  .header-title-area p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-actions { flex-wrap: nowrap; flex-shrink: 0; }
+  .brand-logout { display: inline-flex; }
   .user-meta { display: none; }
   .workspace { padding: 20px; }
   .trainee-layout { grid-template-columns: 1fr; }
@@ -1324,8 +1330,12 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   .builder-panel { min-width: 0; }
   .auth-shell { grid-template-columns: 1fr; }
   .auth-brand-panel { display: none; }
-  .auth-panel { min-height: 100vh; }
-  .auth-mobile-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .auth-panel { min-height: 100svh; justify-content: flex-start; }
+  .auth-card { margin-block: auto; }
+  .auth-topbar { position: static; width: 100%; max-width: 410px; justify-content: space-between; margin-bottom: 26px; }
+  .auth-mobile-top-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .auth-mobile-top-brand .auth-logo { width: 38px; height: 38px; font-size: 1.05rem; }
+  .auth-mobile-top-brand .brand-title { font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 @media (max-width: 768px) {
@@ -1366,7 +1376,7 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   .review-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .span-full { grid-column: auto; }
-  .auth-panel { padding: 74px 20px 40px; }
+  .auth-panel { padding: 28px 20px 40px; }
   .auth-heading h1 { font-size: 1.55rem; }
   .auth-message { font-size: 0.78rem; }
   .auth-shell { min-height: 100svh; }
@@ -1391,6 +1401,74 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   .credential-row > span { width: 100%; min-width: 0; }
   .credential-row > strong { flex: 1 1 200px; }
   .week-progress-card { min-width: 0; width: 100%; }
+}
+
+@media (max-width: 1024px) {
+  html[data-role="coach"] { font-size: 17px; }
+}
+
+@media (max-width: 768px) {
+  html[data-role="coach"] { font-size: 19px; }
+  .app-shell[data-role="coach"] .nav-btn { font-size: 0.95rem; }
+  .app-shell[data-role="coach"] .header-title-area p { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .btn { font-size: 0.95rem; min-height: 44px; }
+  .app-shell[data-role="coach"] .btn-sm { font-size: 0.9rem; min-height: 38px; }
+  .app-shell[data-role="coach"] .badge { font-size: 0.84rem; }
+  .app-shell[data-role="coach"] .eyebrow { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .welcome-card h2 { font-size: 1.5rem; }
+  .app-shell[data-role="coach"] .welcome-card p { font-size: 1rem; }
+  .app-shell[data-role="coach"] .card-header h2 { font-size: 1.25rem; }
+  .app-shell[data-role="coach"] .card-header p { font-size: 0.92rem; line-height: 1.55; }
+  .app-shell[data-role="coach"] .kpi-top { font-size: 0.95rem; }
+  .app-shell[data-role="coach"] .kpi-value { font-size: 1.65rem; }
+  .app-shell[data-role="coach"] .kpi-sub { font-size: 0.88rem; }
+  .app-shell[data-role="coach"] .toolbar-meta { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .form-label { font-size: 0.95rem; }
+  .app-shell[data-role="coach"] .form-hint { font-size: 0.82rem; }
+  .app-shell[data-role="coach"] .activity-copy strong { font-size: 0.98rem; }
+  .app-shell[data-role="coach"] .activity-copy span { font-size: 0.85rem; line-height: 1.5; }
+  .app-shell[data-role="coach"] .snapshot-name { font-size: 0.98rem; }
+  .app-shell[data-role="coach"] .snapshot-meta { font-size: 0.84rem; }
+  .app-shell[data-role="coach"] .snapshot-percent { font-size: 0.92rem; }
+  .app-shell[data-role="coach"] .trainee-list-copy strong { font-size: 0.98rem; }
+  .app-shell[data-role="coach"] .trainee-list-copy > span { font-size: 0.82rem; }
+  .app-shell[data-role="coach"] .trainee-list-copy .badge { font-size: 0.72rem; }
+  .app-shell[data-role="coach"] .builder-title-row h2 { font-size: 1.35rem; }
+  .app-shell[data-role="coach"] .builder-identity p { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .builder-stats span { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .builder-stats strong { font-size: 1.05rem; }
+  .app-shell[data-role="coach"] .day-head h3 { font-size: 1.12rem; }
+  .app-shell[data-role="coach"] .day-head span { font-size: 0.83rem; }
+  .app-shell[data-role="coach"] .day-empty { font-size: 0.92rem; }
+  .app-shell[data-role="coach"] .rest-day-body { font-size: 0.94rem; }
+  .app-shell[data-role="coach"] .workout-chip-main strong { font-size: 0.95rem; }
+  .app-shell[data-role="coach"] .workout-chip-main span { font-size: 0.82rem; }
+  .app-shell[data-role="coach"] .workout-chip-actions .badge { font-size: 0.72rem; }
+  .app-shell[data-role="coach"] .link-btn,
+  .app-shell[data-role="coach"] .add-exercise-btn { font-size: 0.92rem; }
+  .app-shell[data-role="coach"] .exercise-title-row h3 { font-size: 1.12rem; }
+  .app-shell[data-role="coach"] .exercise-body p { font-size: 0.94rem; }
+  .app-shell[data-role="coach"] .exercise-meta span { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .setting-row strong { font-size: 1rem; }
+  .app-shell[data-role="coach"] .setting-row p { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .week-progress-head { font-size: 0.88rem; }
+  .app-shell[data-role="coach"] .week-progress-meta { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .summary-row { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .status-breakdown > div { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .standing-score span { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .archive-week { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .archive-card > strong { font-size: 1rem; }
+  .app-shell[data-role="coach"] .archive-card > span { font-size: 0.84rem; }
+  .app-shell[data-role="coach"] .archive-card > small { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .modal-head h2 { font-size: 1.25rem; }
+  .app-shell[data-role="coach"] .modal-head p { font-size: 0.9rem; }
+  .app-shell[data-role="coach"] .confirm-copy { font-size: 1rem; }
+  .app-shell[data-role="coach"] .proof-guide p { font-size: 0.92rem; }
+  .app-shell[data-role="coach"] .proof-copy-block > span { font-size: 0.8rem; }
+  .app-shell[data-role="coach"] .proof-copy-block p { font-size: 0.95rem; }
+  .app-shell[data-role="coach"] .media-preview span { font-size: 0.85rem; }
+  .app-shell[data-role="coach"] .credential-row > span { font-size: 0.84rem; }
+  .app-shell[data-role="coach"] .credential-row > strong { font-size: 0.95rem; }
 }
 
 

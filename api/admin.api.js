@@ -138,10 +138,16 @@ export async function updateAdminProfile({ nameEn, nameAr, email }) {
   if (!user) throw new Error("AUTH_REQUIRED");
   const nextEmail = email?.trim().toLowerCase() || user.email;
   let emailConfirmationRequired = false;
+  let profileEmail = user.email || "";
   if (nextEmail && nextEmail !== String(user.email || "").toLowerCase()) {
-    const { error } = await client.auth.updateUser({ email: nextEmail });
+    const { data, error } = await client.auth.updateUser({ email: nextEmail });
     if (error) throw new Error(/already|registered/i.test(error.message) ? "EMAIL_EXISTS" : error.message);
-    emailConfirmationRequired = true;
+    const confirmedEmail = String(data?.user?.email || "").trim().toLowerCase();
+    if (confirmedEmail === nextEmail) {
+      profileEmail = nextEmail;
+    } else {
+      emailConfirmationRequired = true;
+    }
   }
   const profile = unwrap(
     await client
@@ -149,7 +155,7 @@ export async function updateAdminProfile({ nameEn, nameAr, email }) {
       .update({
         name_en: nameEn?.trim(),
         name_ar: nameAr?.trim(),
-        email: nextEmail || user.email
+        email: profileEmail
       })
       .eq("id", user.id)
       .select("*")

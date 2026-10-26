@@ -194,7 +194,7 @@ for each row execute function public.handle_new_user();
 create table if not exists public.platform_settings (
   id smallint primary key default 1 check (id = 1),
   website_name_en text not null default 'R&R Fit',
-  website_name_ar text not null default 'رانا رويال فتنيس',
+  website_name_ar text not null default 'رنا رويال فتنيس',
   coach_name_en text not null default '',
   coach_name_ar text not null default '',
   coach_email text not null default '',
@@ -417,7 +417,13 @@ begin
      or new.week_id is distinct from old.week_id
      or new.scheduled_date is distinct from old.scheduled_date
      or new.day_key is distinct from old.day_key
-     or new.sets is distinct from old.sets then
+     or new.sets is distinct from old.sets
+     or new.reps_en is distinct from old.reps_en
+     or new.reps_ar is distinct from old.reps_ar
+     or new.rest_en is distinct from old.rest_en
+     or new.rest_ar is distinct from old.rest_ar
+     or new.notes_en is distinct from old.notes_en
+     or new.notes_ar is distinct from old.notes_ar then
     raise exception 'Workout assignment fields are managed by the coach';
   end if;
 

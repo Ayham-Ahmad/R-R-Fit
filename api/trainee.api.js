@@ -6,6 +6,7 @@ import {
   getPlatformSettings,
   getWeeks,
   mapTraineeProfile,
+  normalizePhone,
   requireSupabase,
   unwrap
 } from "./client.js";
@@ -16,15 +17,23 @@ export async function loadTraineeWorkspace() {
   if (!user) throw new Error("AUTH_REQUIRED");
   const userId = user.id;
 
-  const [settings, categories, exercises, weeks, currentWeek, profileResult] = await Promise.all([
+  const [settings, categories, exercises, weeks, currentWeek, profileResult, historyResult] = await Promise.all([
     getPlatformSettings(),
     getCategories(),
     getExercises(),
     getWeeks(),
     getLiveWeek(),
-    client.from("profiles").select("*").eq("id", userId).single()
+    client.from("profiles").select("*").eq("id", userId).single(),
+    client
+      .from("scheduled_workouts")
+      .select("*")
+      .eq("trainee_id", userId)
+      .in("status", ["completed", "skipped"])
+      .order("completed_at", { ascending: false })
+      .limit(100)
   ]);
   const profile = unwrap(profileResult, "Unable to load your trainee profile");
+  const history = unwrap(historyResult, "Unable to load your proof history") || [];
 
   let workouts = [];
   let daySettings = [];
@@ -48,6 +57,7 @@ export async function loadTraineeWorkspace() {
 
   const trainee = mapTraineeProfile(profile, {
     workouts,
+    history,
     daySettings,
     weekStart: currentWeek?.startsOn
   });
@@ -116,7 +126,7 @@ export async function submitWorkoutProof({
           proof_weights: cleanWeights,
           proof_rpe: rpeNumber,
           proof_summary_en: cleanSummary,
-          proof_summary_ar: summaryAr || cleanSummary,
+          proof_summary_ar: summaryAr || null,
           proof_screenshot_path: screenshotPath,
           verification_status: "pending_review",
           completed_at: new Date().toISOString()
@@ -172,7 +182,7 @@ export async function saveTraineeProfile({ nameEn, nameAr, goalEn, goalAr, phone
         name_ar: nameAr.trim(),
         goal_en: goalEn?.trim() || "",
         goal_ar: goalAr?.trim() || "",
-        whatsapp_phone: String(phone || "").replace(/[^\d]/g, "")
+        whatsapp_phone: normalizePhone(phone)
       })
       .eq("id", user.id)
       .select("*")

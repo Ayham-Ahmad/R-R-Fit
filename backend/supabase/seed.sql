@@ -10,7 +10,7 @@ insert into public.platform_settings (
   leaderboard_stage, reward_title_en, reward_title_ar
 )
 values (
-  1, 'R&R Fit', 'رانا رويال فتنيس',
+  1, 'R&R Fit', 'رنا رويال فتنيس',
   '', '', '', '', '',
   true, true, true, 'published',
   'One Extra Free Fitness Class', 'حصة تدريبية مجانية إضافية واحدة'

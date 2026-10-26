@@ -96,7 +96,16 @@ drop policy if exists "exercises_read_authenticated" on public.exercises;
 create policy "exercises_read_authenticated"
 on public.exercises for select
 to authenticated
-using (is_active or public.is_coach_or_admin());
+using (
+  is_active
+  or public.is_coach_or_admin()
+  or exists (
+    select 1
+    from public.scheduled_workouts sw
+    where sw.exercise_id = exercises.id
+      and sw.trainee_id = auth.uid()
+  )
+);
 
 drop policy if exists "exercises_write_privileged" on public.exercises;
 create policy "exercises_write_privileged"

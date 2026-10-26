@@ -8,6 +8,7 @@ import {
   getWeeks,
   mapExercise,
   mapTraineeProfile,
+  normalizePhone,
   requireSupabase,
   unwrap
 } from "./client.js";
@@ -48,7 +49,7 @@ function deriveRecentActivity(profiles, workouts) {
           ? `أرسلت ${trainee?.name_ar || "المتدربة"} إثبات تمرين موثقاً وحصلت على نقاط لوحة المتصدرات.`
           : `أرسلت ${trainee?.name_ar || "المتدربة"} إثبات تمرين بانتظار مراجعة المدربة.`,
         timeEn: new Date(row.updated_at || row.completed_at || Date.now()).toLocaleString("en"),
-        timeAr: new Date(row.updated_at || row.completed_at || Date.now()).toLocaleString("ar")
+        timeAr: new Date(row.updated_at || row.completed_at || Date.now()).toLocaleString("ar-SA-u-ca-gregory")
       };
     });
 }
@@ -115,7 +116,7 @@ export async function loadCoachWorkspace() {
         textEn: row.text_en,
         textAr: row.text_ar,
         timeEn: new Date(row.created_at).toLocaleString("en"),
-        timeAr: new Date(row.created_at).toLocaleString("ar")
+        timeAr: new Date(row.created_at).toLocaleString("ar-SA-u-ca-gregory")
       }))
     : deriveRecentActivity(profiles, workouts);
 
@@ -212,7 +213,7 @@ export async function addWorkoutToDay({ traineeId, dayKey, exerciseId, weekId })
     "Unable to add the exercise to the schedule"
   );
 
-  await client
+  const daySetting = await client
     .from("trainee_day_settings")
     .upsert(
       {
@@ -223,6 +224,10 @@ export async function addWorkoutToDay({ traineeId, dayKey, exerciseId, weekId })
       },
       { onConflict: "trainee_id,week_id,day_key" }
     );
+  if (daySetting.error) {
+    await client.from("scheduled_workouts").delete().eq("id", inserted.id);
+    throw new Error(daySetting.error.message);
+  }
 
   return inserted;
 }
@@ -255,7 +260,24 @@ export async function setRestDay({ traineeId, weekId, dayKey, isRestDay }) {
       .limit(1);
     if (completedError) throw new Error(completedError.message);
     if (completed?.length) throw new Error("DAY_HAS_COMPLETED_WORKOUTS");
+  }
 
+  const daySetting = await client
+    .from("trainee_day_settings")
+    .upsert(
+      {
+        trainee_id: traineeId,
+        week_id: week.id,
+        day_key: dayKey,
+        is_rest_day: isRestDay
+      },
+      { onConflict: "trainee_id,week_id,day_key" }
+    )
+    .select("*")
+    .single();
+  if (daySetting.error) throw new Error(daySetting.error.message);
+
+  if (isRestDay) {
     const { error } = await client
       .from("scheduled_workouts")
       .delete()
@@ -263,25 +285,23 @@ export async function setRestDay({ traineeId, weekId, dayKey, isRestDay }) {
       .eq("week_id", week.id)
       .eq("day_key", dayKey)
       .neq("status", "completed");
-    if (error) throw new Error(error.message);
+    if (error) {
+      await client
+        .from("trainee_day_settings")
+        .upsert(
+          {
+            trainee_id: traineeId,
+            week_id: week.id,
+            day_key: dayKey,
+            is_rest_day: false
+          },
+          { onConflict: "trainee_id,week_id,day_key" }
+        );
+      throw new Error(error.message);
+    }
   }
 
-  return unwrap(
-    await client
-      .from("trainee_day_settings")
-      .upsert(
-        {
-          trainee_id: traineeId,
-          week_id: week.id,
-          day_key: dayKey,
-          is_rest_day: isRestDay
-        },
-        { onConflict: "trainee_id,week_id,day_key" }
-      )
-      .select("*")
-      .single(),
-    "Unable to update the rest day"
-  );
+  return daySetting.data;
 }
 
 export async function updateWorkout(workoutId, updates) {
@@ -389,7 +409,7 @@ export async function savePlatformSettings(settings) {
         coach_name_ar: settings.coachNameAr.trim(),
         coach_email: settings.coachEmail?.trim() || "",
         coach_phone: settings.coachPhone?.trim() || "",
-        whatsapp_phone: String(settings.coachPhone || "").replace(/[^\d]/g, "")
+        whatsapp_phone: normalizePhone(settings.coachPhone)
       })
       .eq("id", 1)
       .select("*")

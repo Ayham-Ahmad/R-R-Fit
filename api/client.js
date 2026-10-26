@@ -40,8 +40,15 @@ export function unwrap(result, fallbackMessage = "Database request failed") {
   return result?.data;
 }
 
+export function normalizePhone(phone) {
+  let digits = String(phone || "").replace(/[^\d]/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = `966${digits.slice(1)}`;
+  return digits;
+}
+
 export function formatPhone(phone) {
-  const digits = String(phone || "").replace(/[^\d]/g, "");
+  const digits = normalizePhone(phone);
   if (!digits) return "";
   if (digits.startsWith("966") && digits.length >= 12) {
     return `+966 ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
@@ -68,12 +75,12 @@ export function mapSettings(row) {
   const settings = row || {};
   return {
     websiteNameEn: settings.website_name_en || "R&R Fit",
-    websiteNameAr: settings.website_name_ar || "رانا رويال فتنيس",
+    websiteNameAr: settings.website_name_ar || "رنا رويال فتنيس",
     coachNameEn: settings.coach_name_en || "Coach",
     coachNameAr: settings.coach_name_ar || "المدربة",
     coachEmail: settings.coach_email || "",
     coachPhone: settings.coach_phone || "",
-    whatsappPhone: settings.whatsapp_phone || "",
+    whatsappPhone: normalizePhone(settings.whatsapp_phone || settings.coach_phone),
     mainCoachId: settings.main_coach_id || null,
     leaderboardEnabled: settings.leaderboard_enabled !== false,
     leaderboardPublished: settings.leaderboard_published !== false,
@@ -129,6 +136,35 @@ function isoDateForDay(weekStart, dayKey) {
   return date.toISOString().slice(0, 10);
 }
 
+export function mapWorkout(row) {
+  return {
+    uid: row.id,
+    exerciseId: row.exercise_id,
+    sets: row.sets,
+    repsEn: row.reps_en,
+    repsAr: row.reps_ar,
+    restEn: row.rest_en,
+    restAr: row.rest_ar,
+    notesEn: row.notes_en || "",
+    notesAr: row.notes_ar || "",
+    status: row.status,
+    verified: row.verification_status === "verified",
+    verificationStatus: row.verification_status || "none",
+    proofSummaryEn: row.proof_summary_en || "",
+    proofSummaryAr: row.proof_summary_ar || "",
+    proofWeights: row.proof_weights || "",
+    proofRpe: row.proof_rpe,
+    proofScreenshotPath: row.proof_screenshot_path || null,
+    verificationNote: row.verification_note || "",
+    weightLogEn: row.proof_weights || "",
+    weightLogAr: row.proof_weights || "",
+    watchLogEn: row.proof_summary_en || "",
+    watchLogAr: row.proof_summary_ar || "",
+    completedAt: row.completed_at,
+    verifiedAt: row.verified_at
+  };
+}
+
 export function buildSchedule(workouts, daySettings, weekStart) {
   const schedule = {};
   const settingsByDay = new Map((daySettings || []).map((row) => [row.day_key, row]));
@@ -145,32 +181,7 @@ export function buildSchedule(workouts, daySettings, weekStart) {
     if (!schedule[row.day_key]) {
       schedule[row.day_key] = { isRestDay: false, date: row.scheduled_date, items: [] };
     }
-    schedule[row.day_key].items.push({
-      uid: row.id,
-      exerciseId: row.exercise_id,
-      sets: row.sets,
-      repsEn: row.reps_en,
-      repsAr: row.reps_ar,
-      restEn: row.rest_en,
-      restAr: row.rest_ar,
-      notesEn: row.notes_en || "",
-      notesAr: row.notes_ar || "",
-      status: row.status,
-      verified: row.verification_status === "verified",
-      verificationStatus: row.verification_status || "none",
-      proofSummaryEn: row.proof_summary_en || "",
-      proofSummaryAr: row.proof_summary_ar || "",
-      proofWeights: row.proof_weights || "",
-      proofRpe: row.proof_rpe,
-      proofScreenshotPath: row.proof_screenshot_path || null,
-      verificationNote: row.verification_note || "",
-      weightLogEn: row.proof_weights || "",
-      weightLogAr: row.proof_weights || "",
-      watchLogEn: row.proof_summary_en || "",
-      watchLogAr: row.proof_summary_ar || "",
-      completedAt: row.completed_at,
-      verifiedAt: row.verified_at
-    });
+    schedule[row.day_key].items.push(mapWorkout(row));
   });
 
   DAY_KEYS.forEach((dayKey) => {
@@ -180,7 +191,7 @@ export function buildSchedule(workouts, daySettings, weekStart) {
   return schedule;
 }
 
-export function mapTraineeProfile(row, { workouts = [], daySettings = [], weekStart } = {}) {
+export function mapTraineeProfile(row, { workouts = [], history = [], daySettings = [], weekStart } = {}) {
   const completed = workouts.filter((item) => item.status === "completed" && item.verification_status !== "rejected");
   const verified = workouts.filter((item) => item.verification_status === "verified");
   const pending = workouts.filter((item) => item.verification_status === "pending_review");
@@ -190,6 +201,16 @@ export function mapTraineeProfile(row, { workouts = [], daySettings = [], weekSt
   })[0];
 
   const schedule = buildSchedule(workouts, daySettings, weekStart);
+  const seenProofs = new Set();
+  const proofHistory = [...workouts, ...history]
+    .filter((item) => ["completed", "skipped"].includes(item.status))
+    .map((item) => ({ ...mapWorkout(item), dayKey: item.day_key }))
+    .filter((item) => {
+      if (seenProofs.has(item.uid)) return false;
+      seenProofs.add(item.uid);
+      return true;
+    })
+    .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
   const hasPending = pending.length > 0;
   const hasVerified = verified.length > 0;
   const allCompletedVerified = completed.length > 0 && completed.every((item) => item.verification_status === "verified");
@@ -199,7 +220,7 @@ export function mapTraineeProfile(row, { workouts = [], daySettings = [], weekSt
     nameEn: row.name_en,
     nameAr: row.name_ar,
     email: row.email || "",
-    whatsappPhone: row.whatsapp_phone || row.phone || "",
+    whatsappPhone: normalizePhone(row.whatsapp_phone || row.phone),
     phoneDisplayEn: formatPhone(row.whatsapp_phone || row.phone),
     phoneDisplayAr: formatPhone(row.whatsapp_phone || row.phone),
     goalEn: row.goal_en || "",
@@ -211,6 +232,7 @@ export function mapTraineeProfile(row, { workouts = [], daySettings = [], weekSt
     avatarStyle: row.avatar_style || "sara",
     avatarUrl: createDrawingAvatar(row.avatar_style || "sara"),
     schedule,
+    proofHistory,
     coachVerifiedProof: allCompletedVerified || (hasVerified && !hasPending),
     proofVerified: allCompletedVerified,
     proofPending: hasPending,
@@ -221,7 +243,7 @@ export function mapTraineeProfile(row, { workouts = [], daySettings = [], weekSt
       ? new Date(latestProof.completed_at).toLocaleString("en")
       : "No recent activity",
     lastActivityAr: latestProof?.completed_at
-      ? new Date(latestProof.completed_at).toLocaleString("ar")
+      ? new Date(latestProof.completed_at).toLocaleString("ar-SA-u-ca-gregory")
       : "لا يوجد نشاط حديث",
     weekId: latestProof?.week_id || null
   };
@@ -261,7 +283,7 @@ export async function getCategories() {
 export async function getExercises() {
   const client = requireSupabase();
   const data = unwrap(
-    await client.from("exercises").select("*").eq("is_active", true).order("created_at", { ascending: true }),
+    await client.from("exercises").select("*").order("created_at", { ascending: true }),
     "Unable to load exercises"
   );
   return (data || []).map(mapExercise);
@@ -324,16 +346,17 @@ export async function invokeAccountFunction(payload) {
   const client = requireSupabase();
   const { data, error } = await client.functions.invoke("admin-users", { body: payload });
   if (error) {
-    let message = error.message || "Account provisioning failed";
+    let message = error.message || "SERVER_NOT_CONFIGURED";
     try {
       const body = await error.context?.json?.();
-      if (body?.message) message = body.message;
+      if (body?.error) message = body.error;
+      else if (body?.message) message = body.message;
     } catch {
       // The edge function may be unreachable or returned a non-JSON response.
     }
     throw new Error(message);
   }
-  if (data?.error) throw new Error(data.message || data.error);
+  if (data?.error) throw new Error(data.error);
   return data;
 }
 

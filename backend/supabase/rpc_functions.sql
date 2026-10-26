@@ -233,9 +233,15 @@ begin
     nullif(p_label_en, ''),
     to_char(v_start, 'FMMonth DD') || ' – ' || to_char(v_end, 'FMMonth DD') || ' (Current Week)'
   );
-  v_label_ar := coalesce(nullif(p_label_ar, ''), v_label_en);
+  v_label_ar := coalesce(
+    nullif(p_label_ar, ''),
+    'الأسبوع الحالي ' || to_char(v_start, 'DD/MM/YYYY') || ' – ' || to_char(v_end, 'DD/MM/YYYY')
+  );
   v_short_en := coalesce(nullif(p_short_en, ''), to_char(v_start, 'Mon DD') || ' – ' || to_char(v_end, 'Mon DD'));
-  v_short_ar := coalesce(nullif(p_short_ar, ''), v_short_en);
+  v_short_ar := coalesce(
+    nullif(p_short_ar, ''),
+    to_char(v_start, 'DD/MM') || ' – ' || to_char(v_end, 'DD/MM')
+  );
 
   insert into public.leaderboard_weeks (
     label_en, label_ar, short_en, short_ar, starts_on, ends_on, is_live, is_published

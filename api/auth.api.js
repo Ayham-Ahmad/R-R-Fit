@@ -7,6 +7,21 @@ import {
   requireSupabase
 } from "./client.js";
 
+async function reconcileProfileEmail(profileRow, authUser) {
+  if (!profileRow || !authUser?.id) return profileRow;
+  const authEmail = String(authUser.email || "").trim().toLowerCase();
+  if (!authEmail) return profileRow;
+  if (String(profileRow.email || "").trim().toLowerCase() === authEmail) return profileRow;
+  const client = requireSupabase();
+  const { data } = await client
+    .from("profiles")
+    .update({ email: authEmail })
+    .eq("id", authUser.id)
+    .select("*")
+    .single();
+  return data || profileRow;
+}
+
 export function normalizeProfile(profile) {
   if (!profile) return null;
   return {
@@ -31,7 +46,7 @@ export async function login({ email, password }) {
     if (error) throw error;
     if (!data.session || !data.user) throw new Error("INVALID_CREDENTIALS");
 
-    const profileRow = await getUserProfile(data.user.id);
+    const profileRow = await reconcileProfileEmail(await getUserProfile(data.user.id), data.user);
     if (!profileRow) throw new Error("PROFILE_MISSING");
     if (!["admin", "coach", "trainee"].includes(profileRow.role)) {
       throw new Error("INVALID_ROLE");
@@ -57,7 +72,7 @@ export async function getCurrentAuth() {
   if (!SUPABASE_CONFIGURED) return { session: null, user: null, profile: null };
   const session = await getSession();
   if (!session?.user) return { session: null, user: null, profile: null };
-  const profileRow = await getUserProfile(session.user.id);
+  const profileRow = await reconcileProfileEmail(await getUserProfile(session.user.id), session.user);
   return {
     session,
     user: session.user,

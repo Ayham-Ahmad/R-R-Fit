@@ -194,7 +194,7 @@ for each row execute function public.handle_new_user();
 create table if not exists public.platform_settings (
   id smallint primary key default 1 check (id = 1),
   website_name_en text not null default 'R&R Fit',
-  website_name_ar text not null default 'رانا رويال فتنيس',
+  website_name_ar text not null default 'رنا رويال فتنيس',
   coach_name_en text not null default '',
   coach_name_ar text not null default '',
   coach_email text not null default '',

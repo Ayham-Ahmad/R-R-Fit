@@ -59,7 +59,7 @@ const THEME_KEYS = ["v1", "v2", "v3"];
 const PRESET_KEYS = ["squat", "hipthrust", "plank", "latpulldown", "shoulderpress", "cardio"];
 const DEFAULT_SETTINGS = {
   websiteNameEn: "R&R Fit",
-  websiteNameAr: "رانا رويال فتنيس",
+  websiteNameAr: "رنا رويال فتنيس",
   coachNameEn: "Coach",
   coachNameAr: "المدربة",
   coachEmail: "",
@@ -90,12 +90,39 @@ function savePreference(key, value) {
   return true;
 }
 
+function readCookie(name) {
+  const prefix = `${encodeURIComponent(name)}=`;
+  const value = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length) || "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function writeCookie(name, value, days) {
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; Expires=${expires}; Path=/; SameSite=Lax${secure}`;
+}
+
+function deleteCookie(name) {
+  document.cookie = `${encodeURIComponent(name)}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; SameSite=Lax`;
+}
+
+const REMEMBER_EMAIL_COOKIE = "rr_remember_email";
+
 const state = {
   lang: readPreference(LANG_KEY, DEFAULT_LANG),
   theme: readPreference(THEME_KEY, DEFAULT_THEME),
   authMode: "login",
   authError: "",
   authNotice: "",
+  authEmail: "",
   session: null,
   profile: null,
   view: "",
@@ -146,7 +173,12 @@ function bi(object, field) {
 }
 
 function locale() {
-  return state.lang === "ar" ? "ar-SA" : "en-US";
+  return state.lang === "ar" ? "ar-SA-u-ca-gregory" : "en-US";
+}
+
+function localDateValue(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
 }
 
 function percent(value, total) {
@@ -280,7 +312,8 @@ function icon(name) {
     arrow: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
     lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
     unlock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
-    shield: '<path d="M12 3 4 6v5c0 5 3.4 8.2 8 10 4.6-1.8 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>'
+    shield: '<path d="M12 3 4 6v5c0 5 3.4 8.2 8 10 4.6-1.8 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>',
+    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
   };
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.dashboard}</svg>`;
 }
@@ -413,13 +446,18 @@ function errorMessage(error) {
   if (/Failed to send a request|FunctionsFetchError|Failed to fetch|NetworkError/i.test(code)) return t("errNetwork");
   if (/admin-users|Edge Function/i.test(code)) return t("errEdge");
   if (/duplicate key|already exists/i.test(code)) return t("errEmailExists");
-  return code && code !== "UNKNOWN_ERROR" ? code : t("errGeneric");
+  return t("errGeneric");
 }
 
 function applyDocumentPreferences() {
   document.documentElement.lang = state.lang;
   document.documentElement.dir = state.lang === "ar" ? "rtl" : "ltr";
   document.documentElement.dataset.theme = state.theme;
+  if (state.profile?.role) {
+    document.documentElement.dataset.role = state.profile.role;
+  } else {
+    delete document.documentElement.dataset.role;
+  }
 }
 
 function setLanguage(lang) {
@@ -479,15 +517,18 @@ function renderApp(focus = null) {
   const scrollY = window.scrollY;
   document.title = `${brandName()} — ${meta.title}`;
   document.getElementById("app").innerHTML = `
-    <div class="app-shell">
+    <div class="app-shell" data-role="${esc(state.profile.role)}">
       <aside class="sidebar">
-        <div>
-          <div class="brand-box">
-            <div class="brand-logo">${esc(brandName().charAt(0) || "R")}</div>
-            <div>
-              <div class="brand-title">${esc(brandName())}</div>
-              <div class="brand-subtitle">${t("brandTagline")}</div>
+        <div class="sidebar-main">
+          <div class="sidebar-brand-row">
+            <div class="brand-box">
+              <div class="brand-logo">${esc(brandName().charAt(0) || "R")}</div>
+              <div>
+                <div class="brand-title">${esc(brandName())}</div>
+                <div class="brand-subtitle">${t("brandTagline")}</div>
+              </div>
             </div>
+            <button class="btn btn-secondary btn-sm brand-logout" type="button" data-action="logout" title="${t("logoutBtn")}" aria-label="${t("logoutBtn")}">${icon("logout")}</button>
           </div>
           <nav>
             <ul class="nav-list">
@@ -516,7 +557,6 @@ function renderApp(focus = null) {
             <p>${meta.subtitle}</p>
           </div>
           <div class="header-actions">
-            <button class="btn btn-secondary btn-sm" type="button" data-action="toggle-language">${state.lang === "ar" ? "English" : "العربية"}</button>
             <div class="user-chip">
               <span class="avatar"><img src="${userAvatar()}" alt="" /></span>
               <span class="user-meta">
@@ -524,7 +564,6 @@ function renderApp(focus = null) {
                 <span class="user-email">${esc(userEmail())}</span>
               </span>
             </div>
-            <button class="btn btn-secondary btn-sm header-logout" type="button" data-action="logout">${t("logoutBtn")}</button>
           </div>
         </header>
         <main class="workspace" id="workspace">
@@ -823,6 +862,7 @@ function renderAuth() {
   const mode = state.authMode;
   const brand = state.lang === "ar" ? DEFAULT_SETTINGS.websiteNameAr : DEFAULT_SETTINGS.websiteNameEn;
   const tagline = t("authTagline");
+  const rememberedEmail = readCookie(REMEMBER_EMAIL_COOKIE);
   const recoveryWithoutSession = mode === "reset-password" && !state.session;
   const forms = {
     login: `
@@ -831,37 +871,24 @@ function renderAuth() {
           <h1>${t("authLoginTitle")}</h1>
           <p>${t("authLoginSub")}</p>
         </div>
+        <div class="auth-message ${state.authNotice ? "visible success" : ""}" data-auth-notice role="status">${esc(state.authNotice)}</div>
         <div class="auth-message ${state.authError ? "visible" : ""}" data-auth-error role="alert">${esc(state.authError)}</div>
         <div class="form-group">
           <label class="form-label" for="loginEmail">${t("emailLabel")}</label>
-          <input class="form-control ltr-field" id="loginEmail" name="email" type="email" autocomplete="email" required autofocus />
+          <input class="form-control ltr-field" id="loginEmail" name="email" type="email" autocomplete="email" value="${esc(state.authEmail || rememberedEmail)}" required autofocus />
         </div>
         <div class="form-group">
           <label class="form-label" for="loginPassword">${t("passwordLabel")}</label>
           <div class="password-field">
-            <input class="form-control ltr-field" id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+            <input class="form-control" id="loginPassword" name="password" type="password" autocomplete="current-password" required />
             <button class="password-toggle" type="button" data-action="toggle-password" aria-label="${t("showPassword")}">${t("showShort")}</button>
           </div>
         </div>
+        <div class="remember-row">
+          <label class="switch"><input type="checkbox" name="remember" value="1" ${rememberedEmail ? "checked" : ""} /><span></span></label>
+          <span>${t("rememberMe")}</span>
+        </div>
         <button class="btn btn-primary auth-submit" type="submit">${t("authSignInBtn")}</button>
-        <button class="link-btn auth-link" type="button" data-auth-mode="forgot">${t("authForgotLink")}</button>
-        <p class="auth-note">${t("authNoSignup")}</p>
-      </form>
-    `,
-    forgot: `
-      <form data-form="forgot-password" class="auth-form">
-        <button class="link-btn auth-back" type="button" data-auth-mode="login">${icon("arrow")}${t("authBackToLogin")}</button>
-        <div class="auth-heading">
-          <h1>${t("authForgotTitle")}</h1>
-          <p>${t("authForgotSub")}</p>
-        </div>
-        <div class="auth-message ${state.authNotice ? "visible success" : ""}" data-auth-notice role="status">${esc(state.authNotice)}</div>
-        <div class="auth-message ${state.authError ? "visible" : ""}" data-auth-error role="alert">${esc(state.authError)}</div>
-        <div class="form-group">
-          <label class="form-label" for="forgotEmail">${t("emailLabel")}</label>
-          <input class="form-control ltr-field" id="forgotEmail" name="email" type="email" autocomplete="email" required autofocus />
-        </div>
-        <button class="btn btn-primary auth-submit" type="submit">${t("authSendResetBtn")}</button>
         <p class="auth-note">${t("authNoSignup")}</p>
       </form>
     `,
@@ -872,8 +899,7 @@ function renderAuth() {
           <p>${t("authResetExpired")}</p>
         </div>
         <div class="auth-message visible" role="alert">${esc(state.authError)}</div>
-        <button class="btn btn-primary auth-submit" type="button" data-auth-mode="forgot">${t("authForgotLink")}</button>
-        <button class="link-btn auth-link" type="button" data-auth-mode="login">${t("authBackToLogin")}</button>
+        <button class="btn btn-primary auth-submit" type="button" data-auth-mode="login">${t("authBackToLogin")}</button>
       </div>
     ` : `
       <form data-form="reset-password" class="auth-form">
@@ -930,16 +956,13 @@ function renderAuth() {
       </aside>
       <main class="auth-panel">
         <div class="auth-topbar">
+          <div class="auth-mobile-top-brand">
+            <div class="brand-logo auth-logo">R</div>
+            <div class="brand-title">${esc(brand)}</div>
+          </div>
           <button class="btn btn-secondary btn-sm" type="button" data-action="toggle-language">${state.lang === "ar" ? "English" : "العربية"}</button>
         </div>
         <div class="auth-card">
-          <div class="auth-mobile-brand">
-            <div class="brand-logo auth-logo">R</div>
-            <div>
-              <div class="brand-title">${esc(brand)}</div>
-              <div class="brand-subtitle">${t("brandTagline")}</div>
-            </div>
-          </div>
           ${forms[mode] || forms.login}
         </div>
         <p class="auth-footer">${esc(brand)}</p>
@@ -1445,6 +1468,7 @@ function filteredExercises() {
   const exercises = state.coach?.exercises || [];
   const search = state.filters.exerciseSearch.trim().toLowerCase();
   return exercises.filter((exercise) => {
+    if (!exercise.isActive) return false;
     const matchesCategory = state.filters.exerciseCategory === "all" || exercise.categoryId === state.filters.exerciseCategory;
     const haystack = `${exercise.nameEn} ${exercise.nameAr} ${exercise.descEn} ${exercise.descAr}`.toLowerCase();
     return matchesCategory && (!search || haystack.includes(search));
@@ -1628,7 +1652,7 @@ function renderCoachSettings() {
           </div>
           <div class="form-group">
             <label class="form-label" for="coachPhone">${t("phoneLabel")}</label>
-            <input class="form-control ltr-field" id="coachPhone" name="coachPhone" type="tel" value="${esc(settings.coachPhone)}" placeholder="+966 5X XXX XXXX" />
+            <input class="form-control ltr-field" id="coachPhone" name="coachPhone" type="tel" value="${esc(settings.coachPhone)}" placeholder="${t("phoneExample")}" />
           </div>
           <div class="form-actions span-full"><button class="btn btn-primary" type="submit">${t("saveContactBtn")}</button></div>
         </form>
@@ -1682,7 +1706,7 @@ function renderTraineeSchedule() {
       </div>
     `;
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateValue();
   return `
     <div class="view-stack">
       <section class="welcome-card trainee-welcome">
@@ -1811,13 +1835,7 @@ function renderTraineeProgress() {
   const trainee = workspace.trainee;
   const stats = getTraineeStats(trainee);
   const leaderboardEntry = getTraineeLeaderboardEntry(trainee.id);
-  const proofs = [];
-  DAY_KEYS.forEach((dayKey) => {
-    (trainee.schedule?.[dayKey]?.items || []).forEach((item) => {
-      if (["completed", "skipped"].includes(item.status)) proofs.push({ ...item, dayKey });
-    });
-  });
-  proofs.sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+  const proofs = trainee.proofHistory || [];
   return `
     <div class="view-stack">
       <section class="kpi-grid">
@@ -1972,7 +1990,7 @@ function renderTraineeSettings() {
           </div>
           <div class="form-group">
             <label class="form-label" for="traineePhone">${t("phoneLabel")}</label>
-            <input class="form-control ltr-field" id="traineePhone" name="phone" type="tel" value="${esc(trainee.whatsappPhone)}" placeholder="+966 5X XXX XXXX" />
+            <input class="form-control ltr-field" id="traineePhone" name="phone" type="tel" value="${esc(trainee.whatsappPhone)}" placeholder="${t("phoneExample")}" />
           </div>
           <div class="form-group">
             <label class="form-label" for="traineeEmailReadonly">${t("emailLabel")}</label>
@@ -2203,7 +2221,7 @@ function findWorkoutContext(workoutId) {
 
 function openAddWorkoutModal(traineeId, dayKey) {
   const trainee = getCoachTrainee(traineeId);
-  const exercises = state.coach?.exercises || [];
+  const exercises = (state.coach?.exercises || []).filter((exercise) => exercise.isActive);
   if (!trainee) return;
   openModal(`
     <form data-form="add-workout">
@@ -2462,7 +2480,7 @@ async function openReviewProofModal(traineeId, workoutId) {
     state.reviewProof = { traineeId, workoutId, log };
     openModal(`
       <div class="review-modal">
-        ${modalHead(t("reviewProofTitle"), `${trainee ? (state.lang === "ar" ? trainee.nameAr : trainee.nameEn) : ""} · ${dayName(log.dayKey)}`)}
+        ${modalHead(t("reviewProofTitle"), `${trainee ? esc(state.lang === "ar" ? trainee.nameAr : trainee.nameEn) : ""} · ${dayName(log.dayKey)}`)}
         <div class="modal-body">
           <div class="review-grid">
             <div class="review-details">
@@ -2543,16 +2561,14 @@ async function handleAuthSubmit(form) {
   setButtonBusy(button, true);
   try {
     if (type === "login") {
-      const auth = await login({ email: value("email"), password: String(data.get("password") || "") });
+      const email = value("email");
+      state.authEmail = email;
+      if (data.get("remember") === "1") writeCookie(REMEMBER_EMAIL_COOKIE, email, 180);
+      else deleteCookie(REMEMBER_EMAIL_COOKIE);
+      const auth = await login({ email, password: String(data.get("password") || "") });
+      state.authEmail = "";
       state.session = auth.session;
       await enterWorkspace(auth.profile);
-      return;
-    }
-    if (type === "forgot-password") {
-      await sendPasswordReset(value("email"));
-      state.authNotice = t("authResetSent");
-      state.authError = "";
-      renderAuth();
       return;
     }
     if (type === "reset-password") {
@@ -2583,7 +2599,7 @@ async function handleAuthSubmit(form) {
 }
 
 async function handleFormSubmit(form) {
-  if (form.dataset.form === "login" || form.dataset.form === "forgot-password" || form.dataset.form === "reset-password") {
+  if (form.dataset.form === "login" || form.dataset.form === "reset-password") {
     await handleAuthSubmit(form);
     return;
   }
@@ -2860,7 +2876,7 @@ function bindEvents() {
     handleFormSubmit(form);
   });
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const authModeButton = event.target.closest("[data-auth-mode]");
     if (authModeButton) {
       state.authMode = authModeButton.dataset.authMode || "login";
@@ -2915,25 +2931,22 @@ function bindEvents() {
       return;
     }
     if (action === "logout") {
-      openConfirm({
-        title: t("logoutConfirmTitle"),
-        body: t("logoutConfirmBody"),
-        label: t("logoutBtn"),
-        tone: "danger-soft",
-        action: async () => {
-          await logout();
-          state.session = null;
-          state.profile = null;
-          state.admin = null;
-          state.coach = null;
-          state.trainee = null;
-          state.leaderboard = null;
-          state.authMode = "login";
-          state.authError = "";
-          state.authNotice = "";
-          renderAuth();
-        }
-      });
+      try {
+        await logout();
+      } catch (error) {
+        showToast(errorMessage(error), "error");
+        return;
+      }
+      state.session = null;
+      state.profile = null;
+      state.admin = null;
+      state.coach = null;
+      state.trainee = null;
+      state.leaderboard = null;
+      state.authMode = "login";
+      state.authError = "";
+      state.authNotice = "";
+      renderAuth();
       return;
     }
     if (action === "open-create-coach") {
