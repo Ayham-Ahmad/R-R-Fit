@@ -145,6 +145,8 @@ Object.assign(I18N.en, {
   errEmailExists: "This email address is already in use.",
   errEmailInvalid: "Enter a valid email address.",
   errEmailNotConfirmed: "Confirm your email address before signing in. Contact your coach if you need help.",
+  errAdminRequired: "Only an admin can do that.",
+  errBodyTooLarge: "The request is too large.",
   errExerciseMediaSize: "The exercise image is too large. Choose a smaller file.",
   errExerciseMediaType: "Upload a GIF, WebP, JPG, or PNG exercise image.",
   errExerciseNames: "Enter both the Arabic and English exercise names.",
@@ -167,7 +169,9 @@ Object.assign(I18N.en, {
   errProofSummary: "Write a short summary of the workout.",
   errProofWeights: "Enter the weights used for this workout.",
   errRecurrenceDays: "Choose at least one day for a selected-days schedule.",
+  errResetPasswordFailed: "The password could not be reset. Try again.",
   errSessionExpired: "Your session expired. Please sign in again.",
+  errTargetNotFound: "This account could not be found.",
   errSupabase: "The app is not configured. Add the Supabase environment variables and rebuild.",
   errWorkoutLocked: "This workout is already completed and cannot be changed.",
   exerciseAddedToast: "Exercise added to the day.",
@@ -224,7 +228,12 @@ Object.assign(I18N.en, {
   messageCoachBtn: "Message coach",
   myTraineesTitle: "My trainees",
   nameArLabel: "Arabic name",
-  nameEnLabel: "English name"
+  nameEnLabel: "English name",
+  resetPasswordBtn: "Reset password",
+  resetPasswordConfirmBody: "A new temporary password will be created. The current password will stop working. Share it securely with",
+  resetPasswordConfirmTitle: "Reset this password?",
+  resetPasswordReadySub: "Share this temporary password with the account owner. They can change it after signing in.",
+  resetPasswordTitle: "Password reset"
 });
 
 Object.assign(I18N.ar, {
@@ -371,6 +380,8 @@ Object.assign(I18N.ar, {
   errEmailExists: "هذا البريد الإلكتروني مستخدم بالفعل.",
   errEmailInvalid: "أدخلي بريدًا إلكترونيًا صحيحًا.",
   errEmailNotConfirmed: "أكدي بريدك الإلكتروني قبل تسجيل الدخول. تواصلي مع المدربة إذا احتجتِ مساعدة.",
+  errAdminRequired: "هذا الإجراء متاح للمشرفة فقط.",
+  errBodyTooLarge: "الطلب كبير جدًا.",
   errExerciseMediaSize: "صورة التمرين كبيرة جدًا. اختاري ملفًا أصغر.",
   errExerciseMediaType: "ارفعي صورة تمرين بصيغة GIF أو WebP أو JPG أو PNG.",
   errExerciseNames: "أدخلي اسم التمرين بالعربية والإنجليزية.",
@@ -393,7 +404,9 @@ Object.assign(I18N.ar, {
   errProofSummary: "اكتبي ملخصًا قصيرًا للتمرين.",
   errProofWeights: "أدخلي الأوزان المستخدمة في التمرين.",
   errRecurrenceDays: "اختاري يومًا واحدًا على الأقل لنمط الأيام المحددة.",
+  errResetPasswordFailed: "تعذرت إعادة تعيين كلمة المرور. حاولي مرة أخرى.",
   errSessionExpired: "انتهت الجلسة. سجّلي الدخول من جديد.",
+  errTargetNotFound: "تعذر العثور على هذا الحساب.",
   errSupabase: "التطبيق غير مهيأ. أضيفي متغيرات بيئة Supabase ثم أعيدي البناء.",
   errWorkoutLocked: "هذا التمرين مكتمل بالفعل ولا يمكن تعديله.",
   exerciseAddedToast: "تمت إضافة التمرين إلى اليوم.",
@@ -450,5 +463,10 @@ Object.assign(I18N.ar, {
   messageCoachBtn: "مراسلة المدربة",
   myTraineesTitle: "متدرباتي",
   nameArLabel: "الاسم بالعربية",
-  nameEnLabel: "الاسم بالإنجليزية"
+  nameEnLabel: "الاسم بالإنجليزية",
+  resetPasswordBtn: "إعادة تعيين كلمة المرور",
+  resetPasswordConfirmBody: "ستُنشأ كلمة مرور مؤقتة جديدة، وستتوقف كلمة المرور الحالية عن العمل. شاركيها بأمان مع",
+  resetPasswordConfirmTitle: "إعادة تعيين كلمة المرور؟",
+  resetPasswordReadySub: "شاركي كلمة المرور المؤقتة مع صاحبة الحساب، ويمكنها تغييرها بعد تسجيل الدخول.",
+  resetPasswordTitle: "تمت إعادة تعيين كلمة المرور"
 });

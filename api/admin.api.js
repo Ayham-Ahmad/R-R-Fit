@@ -41,7 +41,9 @@ export async function loadAdminWorkspace() {
     getPlatformSettings(),
     client
       .from("profiles")
-      .select("*")
+      .select(
+        "id, role, name_en, name_ar, email, phone, whatsapp_phone, goal_en, goal_ar, subscription_active, plan_unlocked, coach_id, avatar_style, created_at"
+      )
       .order("created_at", { ascending: false }),
     getWeeks(),
     getLiveWeek()
@@ -117,6 +119,14 @@ export async function createTraineeAccount({ email, password, nameEn, nameAr, ph
     coachId
   });
   return result.user;
+}
+
+export async function resetUserPassword(userId) {
+  if (!userId) throw new Error("USER_REQUIRED");
+  return invokeAccountFunction({
+    action: "reset_password",
+    targetUserId: userId
+  });
 }
 
 export async function setUserSubscription(userId, active) {

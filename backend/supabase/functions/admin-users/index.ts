@@ -3,14 +3,20 @@ import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
-const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": APP_ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
-};
+const CONFIGURED_ORIGINS = (Deno.env.get("APP_ORIGIN") || "")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+const DEFAULT_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174"
+];
+const ALLOWED_ORIGINS = CONFIGURED_ORIGINS.length ? CONFIGURED_ORIGINS : DEFAULT_ORIGINS;
+const MAX_BODY_BYTES = 16_384;
+const TEMP_PASSWORD_ALPHABET =
+  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
 
 type CallerProfile = {
   id: string;
@@ -19,8 +25,10 @@ type CallerProfile = {
   name_ar: string;
 };
 
+type AccountAction = "create_coach" | "create_trainee" | "reset_password";
+
 type RequestBody = {
-  action?: "create_coach" | "create_trainee";
+  action?: AccountAction;
   email?: string;
   password?: string;
   nameEn?: string;
@@ -29,14 +37,41 @@ type RequestBody = {
   goalEn?: string;
   goalAr?: string;
   coachId?: string;
+  targetUserId?: string;
 };
 
-function json(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+function isPrivateDevOrigin(origin: string) {
+  try {
+    const hostname = new URL(origin).hostname;
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]" ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
+  } catch {
+    return false;
+  }
 }
 
-function fail(status: number, code: string, message: string) {
-  return json(status, { error: code, message });
+function corsHeadersFor(request: Request) {
+  const origin = (request.headers.get("Origin") || "").replace(/\/$/, "");
+  const allowOrigin =
+    ALLOWED_ORIGINS.includes(origin) ||
+    (!CONFIGURED_ORIGINS.length && isPrivateDevOrigin(origin))
+      ? origin
+      : "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json",
+    Vary: "Origin"
+  };
+  if (allowOrigin) headers["Access-Control-Allow-Origin"] = allowOrigin;
+  return headers;
 }
 
 function cleanText(value: unknown, max = 160) {
@@ -51,9 +86,31 @@ function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function validUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function generateTemporaryPassword() {
+  const bytes = new Uint8Array(14);
+  crypto.getRandomValues(bytes);
+  let password = "Rr-";
+  for (const byte of bytes) {
+    password += TEMP_PASSWORD_ALPHABET[byte % TEMP_PASSWORD_ALPHABET.length];
+  }
+  return password;
+}
+
 Deno.serve(async (request) => {
+  const corsHeaders = corsHeadersFor(request);
+  const json = (status: number, body: Record<string, unknown>) =>
+    new Response(JSON.stringify(body), { status, headers: corsHeaders });
+  const fail = (status: number, code: string, message: string) =>
+    json(status, { error: code, message });
+
   if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (request.method !== "POST") {
     return fail(405, "METHOD_NOT_ALLOWED", "Use POST.");
@@ -65,7 +122,7 @@ Deno.serve(async (request) => {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
-    return fail(401, "AUTH_REQUIRED", "Sign in before creating accounts.");
+    return fail(401, "AUTH_REQUIRED", "Sign in before managing accounts.");
   }
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
@@ -95,14 +152,73 @@ Deno.serve(async (request) => {
     return fail(403, "PROFILE_MISSING", "Your account profile is unavailable.");
   }
 
+  const declaredLength = Number(request.headers.get("Content-Length") || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return fail(413, "BODY_TOO_LARGE", "The request body is too large.");
+  }
+
+  const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+    return fail(413, "BODY_TOO_LARGE", "The request body is too large.");
+  }
+
   let body: RequestBody;
   try {
-    body = await request.json();
+    const parsed = JSON.parse(rawBody);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return fail(400, "INVALID_JSON", "Request body must be a JSON object.");
+    }
+    body = parsed as RequestBody;
   } catch {
     return fail(400, "INVALID_JSON", "Request body must be valid JSON.");
   }
 
   const action = body.action;
+  if (action === "reset_password") {
+    if (caller.role !== "admin") {
+      return fail(403, "ADMIN_REQUIRED", "Only an admin can reset another account password.");
+    }
+
+    const targetUserId = cleanText(body.targetUserId, 64);
+    if (!validUuid(targetUserId)) {
+      return fail(400, "TARGET_INVALID", "Select a valid account.");
+    }
+
+    const { data: target, error: targetError } = await admin
+      .from("profiles")
+      .select("id, email, role")
+      .eq("id", targetUserId)
+      .maybeSingle();
+
+    if (targetError) {
+      console.error("target profile lookup failed", targetError);
+      return fail(500, "TARGET_LOOKUP_FAILED", "The account could not be loaded.");
+    }
+    if (!target) {
+      return fail(404, "TARGET_NOT_FOUND", "The account was not found.");
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const { data: resetData, error: resetError } = await admin.auth.admin.updateUserById(
+      targetUserId,
+      { password: temporaryPassword }
+    );
+
+    if (resetError) {
+      console.error("password reset failed", resetError);
+      return fail(500, "PASSWORD_RESET_FAILED", "The password could not be reset.");
+    }
+
+    return json(200, {
+      user: {
+        id: target.id,
+        email: resetData?.user?.email || target.email || "",
+        role: target.role
+      },
+      password: temporaryPassword
+    });
+  }
+
   if (!action || !["create_coach", "create_trainee"].includes(action)) {
     return fail(400, "INVALID_ACTION", "Unsupported account action.");
   }

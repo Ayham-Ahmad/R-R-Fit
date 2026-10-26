@@ -161,7 +161,8 @@ export function mapWorkout(row) {
     watchLogEn: row.proof_summary_en || "",
     watchLogAr: row.proof_summary_ar || "",
     completedAt: row.completed_at,
-    verifiedAt: row.verified_at
+    verifiedAt: row.verified_at,
+    createdAt: row.created_at
   };
 }
 
@@ -185,7 +186,9 @@ export function buildSchedule(workouts, daySettings, weekStart) {
   });
 
   DAY_KEYS.forEach((dayKey) => {
-    schedule[dayKey].items.sort((a, b) => String(a.uid).localeCompare(String(b.uid)));
+    schedule[dayKey].items.sort((a, b) => {
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    });
   });
 
   return schedule;

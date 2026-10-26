@@ -47,8 +47,12 @@ export async function login({ email, password }) {
     if (!data.session || !data.user) throw new Error("INVALID_CREDENTIALS");
 
     const profileRow = await reconcileProfileEmail(await getUserProfile(data.user.id), data.user);
-    if (!profileRow) throw new Error("PROFILE_MISSING");
+    if (!profileRow) {
+      await client.auth.signOut();
+      throw new Error("PROFILE_MISSING");
+    }
     if (!["admin", "coach", "trainee"].includes(profileRow.role)) {
+      await client.auth.signOut();
       throw new Error("INVALID_ROLE");
     }
 

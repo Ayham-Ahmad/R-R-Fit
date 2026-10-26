@@ -355,6 +355,9 @@ create index if not exists scheduled_workouts_week_status_idx
   on public.scheduled_workouts(week_id, verification_status);
 create index if not exists scheduled_workouts_date_idx
   on public.scheduled_workouts(scheduled_date);
+create unique index if not exists scheduled_workouts_proof_path_unique_idx
+  on public.scheduled_workouts(proof_screenshot_path)
+  where proof_screenshot_path is not null;
 
 drop trigger if exists scheduled_workouts_set_updated_at on public.scheduled_workouts;
 create trigger scheduled_workouts_set_updated_at
@@ -376,6 +379,21 @@ begin
     return new;
   end if;
 
+  if new.proof_screenshot_path is not null
+     and new.proof_screenshot_path is distinct from old.proof_screenshot_path then
+    if split_part(new.proof_screenshot_path, '/', 1) <> new.trainee_id::text then
+      raise exception 'Proof screenshot must belong to this trainee';
+    end if;
+    if not exists (
+      select 1
+      from storage.objects o
+      where o.bucket_id = 'workout-proofs'
+        and o.name = new.proof_screenshot_path
+    ) then
+      raise exception 'Proof screenshot was not uploaded';
+    end if;
+  end if;
+
   if v_role <> 'admin' and old.status <> 'pending' then
     if new.trainee_id is distinct from old.trainee_id
        or new.exercise_id is distinct from old.exercise_id
@@ -383,6 +401,12 @@ begin
        or new.scheduled_date is distinct from old.scheduled_date
        or new.day_key is distinct from old.day_key
        or new.sets is distinct from old.sets
+       or new.reps_en is distinct from old.reps_en
+       or new.reps_ar is distinct from old.reps_ar
+       or new.rest_en is distinct from old.rest_en
+       or new.rest_ar is distinct from old.rest_ar
+       or new.notes_en is distinct from old.notes_en
+       or new.notes_ar is distinct from old.notes_ar
        or new.status is distinct from old.status
        or new.proof_weights is distinct from old.proof_weights
        or new.proof_rpe is distinct from old.proof_rpe
@@ -463,6 +487,43 @@ create trigger scheduled_workouts_enforce_proof
 before update on public.scheduled_workouts
 for each row execute function public.enforce_workout_proof_rules();
 
+create or replace function public.enforce_proof_path_ownership()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request_role text := coalesce(auth.role(), '');
+begin
+  if v_request_role = 'service_role' then
+    return new;
+  end if;
+
+  if new.proof_screenshot_path is not null
+     and new.proof_screenshot_path is distinct from old.proof_screenshot_path then
+    if split_part(new.proof_screenshot_path, '/', 2) not like new.id::text || '-%' then
+      raise exception 'Proof screenshot must belong to this workout';
+    end if;
+    if exists (
+      select 1
+      from public.scheduled_workouts w
+      where w.proof_screenshot_path = new.proof_screenshot_path
+        and w.id <> new.id
+    ) then
+      raise exception 'Proof screenshot has already been used';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists scheduled_workouts_enforce_proof_path on public.scheduled_workouts;
+create trigger scheduled_workouts_enforce_proof_path
+before update on public.scheduled_workouts
+for each row execute function public.enforce_proof_path_ownership();
+
 create or replace function public.prevent_finalized_workout_delete()
 returns trigger
 language plpgsql
@@ -472,7 +533,9 @@ as $$
 declare
   v_request_role text := coalesce(auth.role(), '');
 begin
-  if v_request_role = 'service_role' or public.current_user_role() = 'admin' then
+  if v_request_role = 'service_role'
+     or auth.uid() is null
+     or public.current_user_role() = 'admin' then
     return old;
   end if;
   if old.status = 'completed' then
@@ -486,6 +549,47 @@ drop trigger if exists scheduled_workouts_protect_delete on public.scheduled_wor
 create trigger scheduled_workouts_protect_delete
 before delete on public.scheduled_workouts
 for each row execute function public.prevent_finalized_workout_delete();
+
+create or replace function public.enforce_workout_insert_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_role text := public.current_user_role();
+  v_request_role text := coalesce(auth.role(), '');
+begin
+  if v_request_role = 'service_role' or auth.uid() is null then
+    return new;
+  end if;
+
+  if v_role not in ('coach', 'admin') then
+    raise exception 'Only a coach or admin can schedule workouts';
+  end if;
+
+  if new.status <> 'pending'
+     or new.verification_status <> 'none'
+     or new.completed_at is not null
+     or new.proof_screenshot_path is not null
+     or new.proof_weights is not null
+     or new.proof_rpe is not null
+     or new.proof_summary_en is not null
+     or new.proof_summary_ar is not null
+     or new.verification_note is not null
+     or new.verified_by is not null
+     or new.verified_at is not null then
+    raise exception 'New workouts must be scheduled as pending';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists scheduled_workouts_enforce_insert on public.scheduled_workouts;
+create trigger scheduled_workouts_enforce_insert
+before insert on public.scheduled_workouts
+for each row execute function public.enforce_workout_insert_rules();
 
 create or replace function public.is_proof_path_locked(p_name text)
 returns boolean

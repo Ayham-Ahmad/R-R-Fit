@@ -1,4 +1,9 @@
+const avatarCache = new Map();
+const stickmanCache = new Map();
+
 function createDrawingAvatar(preset) {
+  const cacheKey = String(preset || "sara");
+  if (avatarCache.has(cacheKey)) return avatarCache.get(cacheKey);
   const palettes = {
     coach: { bg: "#F9E6E8",ring: "#C87D87", hair: "#4A2E35", skin: "#F7DFD4", shirt: "#C87D87", accent: "#D4AF37", style: "hijab_crown" },
     sara:  { bg: "#FDF1E6",ring: "#D96B52", hair: "#3B2822", skin: "#F9E2D2", shirt: "#D96B52", accent: "#8FA895", style: "ponytail_visor" },
@@ -87,13 +92,17 @@ function createDrawingAvatar(preset) {
     ${characterArt}
   </svg>`;
 
-  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  const avatar = "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  avatarCache.set(cacheKey, avatar);
+  return avatar;
 }
 
 /* ==========================================================================
    ★ 3. STICKMAN ANIMATED GIF GENERATOR (MINIMALIST STICKMAN STYLE) ★
    ========================================================================== */
 function createStickmanGif(type) {
+  const cacheKey = String(type || "");
+  if (stickmanCache.has(cacheKey)) return stickmanCache.get(cacheKey);
   let innerSvg = "";
 
   if (type === "squat") {
@@ -227,7 +236,9 @@ function createStickmanGif(type) {
     ${innerSvg}
   </svg>`;
 
-  return "data:image/svg+xml;utf8," + encodeURIComponent(fullSvg);
+  const stickman = "data:image/svg+xml;utf8," + encodeURIComponent(fullSvg);
+  stickmanCache.set(cacheKey, stickman);
+  return stickman;
 }
 
 export { createDrawingAvatar, createStickmanGif };

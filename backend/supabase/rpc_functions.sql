@@ -39,8 +39,11 @@ begin
   select w.id
   into v_week_id
   from public.leaderboard_weeks w
-  where (p_week_id is not null and w.id = p_week_id)
-     or (p_week_id is null and w.is_live = true)
+  where (p_week_id is null and w.is_live = true)
+     or (
+       w.id = p_week_id
+       and (public.is_coach_or_admin() or w.is_live or w.is_published)
+     )
   order by w.starts_on desc
   limit 1;
 

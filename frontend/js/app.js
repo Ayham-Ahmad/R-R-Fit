@@ -18,6 +18,7 @@ import {
   createCoachAccount,
   createTraineeAccount,
   loadAdminWorkspace,
+  resetUserPassword,
   saveAdminBrandSettings,
   setUserSubscription,
   updateAdminProfile
@@ -313,6 +314,7 @@ function icon(name) {
     lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
     unlock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
     shield: '<path d="M12 3 4 6v5c0 5 3.4 8.2 8 10 4.6-1.8 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>',
+    key: '<circle cx="7.5" cy="15.5" r="3.5"/><path d="m10.5 12.5 8-8M16 7l2 2M18 5l2 2"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
   };
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.dashboard}</svg>`;
@@ -436,7 +438,13 @@ function errorMessage(error) {
     PROOF_NOT_FOUND: "errProofNotFound",
     BRAND_NAMES_REQUIRED: "errNamesRequired",
     INVALID_PROOF_DECISION: "errGeneric",
-    INVALID_ACTION: "errGeneric"
+    INVALID_ACTION: "errGeneric",
+    ADMIN_REQUIRED: "errAdminRequired",
+    BODY_TOO_LARGE: "errBodyTooLarge",
+    TARGET_INVALID: "errTargetNotFound",
+    TARGET_NOT_FOUND: "errTargetNotFound",
+    TARGET_LOOKUP_FAILED: "errResetPasswordFailed",
+    PASSWORD_RESET_FAILED: "errResetPasswordFailed"
   }[code];
   if (key) return t(key);
   if (/Invalid login credentials/i.test(code)) return t("errInvalidCredentials");
@@ -1095,7 +1103,10 @@ function renderAdminUsers() {
                       <button class="btn btn-sm ${user.subscriptionActive ? "btn-danger-soft" : "btn-secondary"}" type="button" data-action="toggle-user-subscription" data-user-id="${user.id}" data-active="${user.subscriptionActive ? "true" : "false"}">
                         ${icon(user.subscriptionActive ? "lock" : "unlock")}${user.subscriptionActive ? t("lockAccessBtn") : t("unlockAccessBtn")}
                       </button>
-                    ` : `<span class="text-muted">${t("noAction")}</span>`}
+                    ` : ""}
+                    <button class="btn btn-sm btn-secondary" type="button" data-action="reset-user-password" data-user-id="${user.id}" data-email="${esc(user.email)}">
+                      ${icon("key")}${t("resetPasswordBtn")}
+                    </button>
                   </td>
                 </tr>
               `).join("") : `<tr><td colspan="5">${emptyState(t("noUsersFoundTitle"), t("noUsersFoundBody"))}</td></tr>`}
@@ -2079,6 +2090,7 @@ function closeModal() {
   state.proofFile = null;
   state.modalFile = null;
   state.proofWorkoutId = null;
+  state.lastCreated = null;
 }
 
 function openConfirm({ title, body, label, tone = "primary", action }) {
@@ -2175,10 +2187,15 @@ function openCreateTraineeModal() {
   `);
 }
 
-function openCredentialsModal({ email, password }) {
+function openCredentialsModal({
+  email,
+  password,
+  title = t("accountReadyTitle"),
+  sub = t("accountReadySub")
+}) {
   state.lastCreated = { email, password };
   openModal(`
-    ${modalHead(t("accountReadyTitle"), t("accountReadySub"))}
+    ${modalHead(title, sub)}
     <div class="modal-body">
       <div class="credentials-card">
         <div class="credential-row">
@@ -3042,6 +3059,25 @@ function bindEvents() {
           await toggleTraineeAccess(actionButton.dataset.traineeId, !currentlyActive);
           await refreshWorkspaceData();
           showToast(currentlyActive ? t("accessLockedToast") : t("accessUnlockedToast"));
+        }
+      });
+      return;
+    }
+    if (action === "reset-user-password") {
+      const email = actionButton.dataset.email || "";
+      openConfirm({
+        title: t("resetPasswordConfirmTitle"),
+        body: `${t("resetPasswordConfirmBody")}<br><strong class="ltr-field">${esc(email)}</strong>`,
+        label: t("resetPasswordBtn"),
+        tone: "danger-soft",
+        action: async () => {
+          const result = await resetUserPassword(actionButton.dataset.userId);
+          openCredentialsModal({
+            email: result.user?.email || email,
+            password: result.password,
+            title: t("resetPasswordTitle"),
+            sub: t("resetPasswordReadySub")
+          });
         }
       });
       return;

@@ -82,7 +82,8 @@ export async function loadCoachWorkspace() {
         .from("scheduled_workouts")
         .select("*")
         .eq("week_id", currentWeek.id)
-        .order("scheduled_date", { ascending: true }),
+        .order("scheduled_date", { ascending: true })
+        .order("created_at", { ascending: true }),
       client.from("trainee_day_settings").select("*").eq("week_id", currentWeek.id)
     ]);
     workouts = unwrap(workoutsResult, "Unable to load trainee schedules") || [];
