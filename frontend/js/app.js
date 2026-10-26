@@ -2698,6 +2698,7 @@ async function handleFormSubmit(form) {
         coachEmail: value("coachEmail"),
         coachPhone: value("coachPhone")
       });
+      await refreshProfileState();
       await refreshWorkspaceData();
       showToast(t("contactSavedToast"));
       return;
