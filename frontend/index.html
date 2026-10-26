@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="v1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#C87D87" />
+  <meta name="description" content="R&R Fit — private, coach-led fitness programs with verified progress." />
+  <title>R&R Fit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@600;700&family=Cairo:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles/main.css" />
+  <link rel="stylesheet" href="/styles/app.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="app-loading" role="status" aria-live="polite">
+      <div class="loading-mark">R</div>
+      <span class="spinner" aria-hidden="true"></span>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="appModalBackdrop" aria-hidden="true">
+    <div class="modal-box" id="appModalContent" role="dialog" aria-modal="true" aria-label="Dialog"></div>
+  </div>
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
+  <noscript>R&amp;R Fit requires JavaScript to run.</noscript>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

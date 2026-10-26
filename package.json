@@ -1,0 +1,22 @@
+{
+  "name": "rr-fit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "R&R Fit - bilingual female fitness coaching SaaS",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js --config vite.config.js",
+    "build": "node node_modules/vite/bin/vite.js build --config vite.config.js",
+    "preview": "node node_modules/vite/bin/vite.js preview --config vite.config.js",
+    "backend:validate": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --validate",
+    "backend:apply": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --apply",
+    "backend:seed": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --seed",
+    "backend:bootstrap-admin": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --bootstrap-admin"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}

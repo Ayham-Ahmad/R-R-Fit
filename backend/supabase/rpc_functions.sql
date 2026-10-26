@@ -1,8 +1,9 @@
--- NoorFit Studio - secure database RPC functions
+-- R&R Fit - secure database RPC functions
 -- Run after schema.sql and rls_policies.sql.
 begin;
 
 -- Privacy-safe weekly standings. Never returns email, phone, or storage paths.
+-- A workout only earns credit after the coach/admin has verified its proof.
 create or replace function public.get_weekly_leaderboard(
   p_week_id uuid default null,
   p_limit integer default 100
@@ -67,7 +68,9 @@ begin
       coalesce(p.goal_en, '') as goal_en,
       coalesce(p.goal_ar, '') as goal_ar,
       p.avatar_style,
-      count(*) filter (where sw.status = 'completed')::integer as completed_count,
+      count(*) filter (
+        where sw.status = 'completed' and sw.verification_status = 'verified'
+      )::integer as completed_count,
       count(*) filter (where sw.verification_status = 'verified')::integer as verified_count,
       count(*)::integer as total_count
     from public.profiles p
@@ -110,7 +113,53 @@ $$;
 revoke all on function public.get_weekly_leaderboard(uuid, integer) from public;
 grant execute on function public.get_weekly_leaderboard(uuid, integer) to authenticated;
 
--- Archive the current live winner, close the week, and start a new live week.
+-- Privacy-safe archive of previous weekly winners.
+create or replace function public.get_leaderboard_archive()
+returns table (
+  week_en text,
+  week_ar text,
+  trainee_id uuid,
+  name_en text,
+  name_ar text,
+  avatar_style text,
+  completed integer,
+  total integer,
+  percent integer,
+  score integer,
+  reward_en text,
+  reward_ar text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    w.short_en as week_en,
+    w.short_ar as week_ar,
+    lw.trainee_id,
+    p.name_en,
+    p.name_ar,
+    p.avatar_style,
+    lw.completed,
+    lw.total,
+    lw.percent,
+    lw.score,
+    lw.reward_en,
+    lw.reward_ar
+  from public.leaderboard_previous_winners lw
+  left join public.profiles p on p.id = lw.trainee_id
+  left join public.leaderboard_weeks w on w.id = lw.week_id
+  where auth.uid() is not null
+  order by lw.created_at desc
+  limit 100;
+$$;
+
+revoke all on function public.get_leaderboard_archive() from public;
+grant execute on function public.get_leaderboard_archive() to authenticated;
+
+-- Archive the current live winner, close the week, clone the schedule, and
+-- start a new live week. Only the coach/admin can run this operation.
 create or replace function public.start_new_leaderboard_week(
   p_label_en text default null,
   p_label_ar text default null,
@@ -129,8 +178,8 @@ declare
   v_reward_en text;
   v_reward_ar text;
   v_winner record;
-  v_start date := date_trunc('week', current_date)::date + 7;
-  v_end date := v_start + 6;
+  v_start date;
+  v_end date;
   v_label_en text;
   v_label_ar text;
   v_short_en text;
@@ -154,7 +203,7 @@ begin
     from public.get_weekly_leaderboard(v_old_week, 1)
     limit 1;
 
-    if v_winner.trainee_id is not null then
+    if v_winner.trainee_id is not null and coalesce(v_winner.completed_count, 0) > 0 then
       insert into public.leaderboard_previous_winners (
         week_id, trainee_id, completed, total, percent, score,
         reward_en, reward_ar, week_en, week_ar
@@ -167,10 +216,18 @@ begin
       where w.id = v_old_week;
     end if;
 
+    select w.ends_on + 1
+    into v_start
+    from public.leaderboard_weeks w
+    where w.id = v_old_week;
+
     update public.leaderboard_weeks
     set is_live = false, is_published = true
     where id = v_old_week;
   end if;
+
+  v_start := coalesce(v_start, date_trunc('week', current_date)::date);
+  v_end := v_start + 6;
 
   v_label_en := coalesce(
     nullif(p_label_en, ''),
@@ -188,12 +245,55 @@ begin
   )
   returning id into v_new_week;
 
+  if v_old_week is not null then
+    insert into public.scheduled_workouts (
+      trainee_id, exercise_id, week_id, scheduled_date, day_key,
+      sets, reps_en, reps_ar, rest_en, rest_ar, notes_en, notes_ar,
+      status, verification_status
+    )
+    select
+      sw.trainee_id,
+      sw.exercise_id,
+      v_new_week,
+      v_start + (array_position(array['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], sw.day_key) - 1),
+      sw.day_key,
+      sw.sets,
+      sw.reps_en,
+      sw.reps_ar,
+      sw.rest_en,
+      sw.rest_ar,
+      sw.notes_en,
+      sw.notes_ar,
+      'pending',
+      'none'
+    from public.scheduled_workouts sw
+    join public.profiles p on p.id = sw.trainee_id
+    where sw.week_id = v_old_week
+      and p.role = 'trainee'
+      and p.subscription_active
+      and p.plan_unlocked
+      and (
+        p.recurrence in ('weekly', 'daily')
+        or (p.recurrence = 'selected_days' and sw.day_key = any(p.recurrence_days))
+      );
+
+    insert into public.trainee_day_settings (trainee_id, week_id, day_key, is_rest_day)
+    select ds.trainee_id, v_new_week, ds.day_key, ds.is_rest_day
+    from public.trainee_day_settings ds
+    join public.profiles p on p.id = ds.trainee_id
+    where ds.week_id = v_old_week
+      and p.role = 'trainee'
+      and p.subscription_active
+      and p.plan_unlocked
+    on conflict (trainee_id, week_id, day_key) do nothing;
+  end if;
+
   insert into public.activity_events (coach_id, badge_type, text_en, text_ar)
   values (
     v_coach_id,
     'success',
-    'A new weekly leaderboard started. All workout proofs are ready for the new week.',
-    'بدأ أسبوع جديد للوحة المتصدرات. جميع إثباتات التمارين جاهزة للأسبوع الجديد.'
+    'A new weekly leaderboard started. The previous schedule was carried forward for active trainees.',
+    'بدأ أسبوع جديد للوحة المتصدرات. تم ترحيل الجدول السابق للمتدربات النشطات.'
   );
 
   return v_new_week;

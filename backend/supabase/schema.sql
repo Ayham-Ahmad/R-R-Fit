@@ -1,4 +1,4 @@
--- NoorFit Studio - PostgreSQL schema
+-- R&R Fit - PostgreSQL schema
 -- Run this file first in the Supabase SQL editor or through backend/scripts/verify_db.py --apply.
 begin;
 
@@ -32,8 +32,8 @@ create table if not exists public.profiles (
   goal_ar text default '',
   avatar_style text not null default 'sara',
   coach_id uuid references public.profiles(id) on delete set null,
-  subscription_active boolean not null default true,
-  plan_unlocked boolean not null default true,
+  subscription_active boolean not null default false,
+  plan_unlocked boolean not null default false,
   recurrence text not null default 'weekly' check (recurrence in ('weekly', 'selected_days', 'daily')),
   recurrence_days text[] not null default array['mon', 'wed', 'thu', 'sat']::text[],
   created_at timestamptz not null default now(),
@@ -43,6 +43,10 @@ create table if not exists public.profiles (
 create index if not exists profiles_role_idx on public.profiles(role);
 create index if not exists profiles_coach_idx on public.profiles(coach_id);
 create unique index if not exists profiles_email_unique_idx on public.profiles(lower(email)) where email is not null;
+create unique index if not exists profiles_single_coach_idx on public.profiles(role) where role = 'coach';
+
+alter table public.profiles alter column subscription_active set default false;
+alter table public.profiles alter column plan_unlocked set default false;
 
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
@@ -102,7 +106,7 @@ set search_path = public
 as $$
   select coalesce((
     select p.role = 'admin'
-       or (p.role = 'coach' and (t.coach_id = p.id or t.coach_id is null))
+       or (p.role = 'coach' and t.coach_id = p.id)
     from public.profiles t
     join public.profiles p on p.id = auth.uid()
     where t.id = p_trainee_id and t.role = 'trainee'
@@ -118,7 +122,7 @@ set search_path = public
 as $$
 declare
   v_actor_role text := public.current_user_role();
-  v_request_role text := coalesce(current_setting('request.jwt.claim.role', true), '');
+  v_request_role text := coalesce(auth.role(), '');
 begin
   if v_request_role = 'service_role' then
     return new;
@@ -161,14 +165,18 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, role, name_en, name_ar, email, whatsapp_phone)
+  insert into public.profiles (
+    id, role, name_en, name_ar, email, whatsapp_phone, subscription_active, plan_unlocked
+  )
   values (
     new.id,
     'trainee',
     coalesce(nullif(new.raw_user_meta_data->>'name_en', ''), 'New Trainee'),
     coalesce(nullif(new.raw_user_meta_data->>'name_ar', ''), 'متدربة جديدة'),
     new.email,
-    coalesce(nullif(new.raw_user_meta_data->>'whatsapp_phone', ''), null)
+    coalesce(nullif(new.raw_user_meta_data->>'whatsapp_phone', ''), null),
+    false,
+    false
   )
   on conflict (id) do nothing;
   return new;
@@ -185,13 +193,13 @@ for each row execute function public.handle_new_user();
 -- ---------------------------------------------------------------------------
 create table if not exists public.platform_settings (
   id smallint primary key default 1 check (id = 1),
-  website_name_en text not null default 'NoorFit Studio',
-  website_name_ar text not null default 'نور فيت ستوديو',
-  coach_name_en text not null default 'Coach Layla Al-Harbi',
-  coach_name_ar text not null default 'المدربة ليلى الحربي',
-  coach_email text not null default 'coach@noorfit.sa',
-  coach_phone text not null default '+966 50 123 4567',
-  whatsapp_phone text not null default '966501234567',
+  website_name_en text not null default 'R&R Fit',
+  website_name_ar text not null default 'رانا رويال فتنيس',
+  coach_name_en text not null default '',
+  coach_name_ar text not null default '',
+  coach_email text not null default '',
+  coach_phone text not null default '',
+  whatsapp_phone text not null default '',
   main_coach_id uuid references public.profiles(id) on delete set null,
   leaderboard_enabled boolean not null default true,
   leaderboard_published boolean not null default true,
@@ -207,6 +215,37 @@ drop trigger if exists platform_settings_set_updated_at on public.platform_setti
 create trigger platform_settings_set_updated_at
 before update on public.platform_settings
 for each row execute function public.set_updated_at();
+
+create or replace function public.protect_platform_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request_role text := coalesce(auth.role(), '');
+begin
+  if v_request_role = 'service_role' or public.is_admin() then
+    return new;
+  end if;
+  if new.website_name_en is distinct from old.website_name_en
+     or new.website_name_ar is distinct from old.website_name_ar
+     or new.main_coach_id is distinct from old.main_coach_id then
+    raise exception 'Brand and coach assignment fields are managed by the admin';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists platform_settings_protect_fields on public.platform_settings;
+create trigger platform_settings_protect_fields
+before update on public.platform_settings
+for each row execute function public.protect_platform_fields();
+
+alter table public.platform_settings
+  drop constraint if exists platform_settings_strict_verification_lock;
+alter table public.platform_settings
+  add constraint platform_settings_strict_verification_lock check (strict_verification);
 
 insert into public.platform_settings (id)
 values (1)
@@ -331,10 +370,35 @@ set search_path = public
 as $$
 declare
   v_role text := public.current_user_role();
-  v_request_role text := coalesce(current_setting('request.jwt.claim.role', true), '');
+  v_request_role text := coalesce(auth.role(), '');
 begin
-  if v_request_role = 'service_role' or v_role in ('coach', 'admin') then
+  if v_request_role = 'service_role' then
+    return new;
+  end if;
+
+  if v_role <> 'admin' and old.status <> 'pending' then
+    if new.trainee_id is distinct from old.trainee_id
+       or new.exercise_id is distinct from old.exercise_id
+       or new.week_id is distinct from old.week_id
+       or new.scheduled_date is distinct from old.scheduled_date
+       or new.day_key is distinct from old.day_key
+       or new.sets is distinct from old.sets
+       or new.status is distinct from old.status
+       or new.proof_weights is distinct from old.proof_weights
+       or new.proof_rpe is distinct from old.proof_rpe
+       or new.proof_summary_en is distinct from old.proof_summary_en
+       or new.proof_summary_ar is distinct from old.proof_summary_ar
+       or new.proof_screenshot_path is distinct from old.proof_screenshot_path
+       or new.completed_at is distinct from old.completed_at then
+      raise exception 'Finalized workout results are locked';
+    end if;
+  end if;
+
+  if v_role in ('coach', 'admin') then
     if new.verification_status in ('verified', 'rejected') then
+      if old.status <> 'completed' or old.proof_screenshot_path is null then
+        raise exception 'Only submitted workout proof can be verified or rejected';
+      end if;
       new.verified_by = coalesce(auth.uid(), new.verified_by);
       new.verified_at = coalesce(new.verified_at, now());
     else
@@ -357,6 +421,10 @@ begin
     raise exception 'Workout assignment fields are managed by the coach';
   end if;
 
+  if old.status <> 'pending' then
+    raise exception 'Completed or skipped workouts are locked';
+  end if;
+
   if new.verification_status is distinct from old.verification_status
      and new.verification_status in ('verified', 'rejected') then
     raise exception 'Only a coach or admin can verify or reject workout proof';
@@ -366,6 +434,12 @@ begin
   new.verified_at = null;
 
   if new.status = 'completed' then
+    if new.proof_screenshot_path is null
+       or length(btrim(coalesce(new.proof_weights, ''))) < 2
+       or length(btrim(coalesce(new.proof_summary_en, ''))) < 2
+       or new.proof_rpe is null then
+      raise exception 'Proof weights, summary, effort, and screenshot are required';
+    end if;
     new.verification_status = 'pending_review';
     new.completed_at = coalesce(new.completed_at, now());
   else
@@ -382,6 +456,43 @@ drop trigger if exists scheduled_workouts_enforce_proof on public.scheduled_work
 create trigger scheduled_workouts_enforce_proof
 before update on public.scheduled_workouts
 for each row execute function public.enforce_workout_proof_rules();
+
+create or replace function public.prevent_finalized_workout_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request_role text := coalesce(auth.role(), '');
+begin
+  if v_request_role = 'service_role' or public.current_user_role() = 'admin' then
+    return old;
+  end if;
+  if old.status = 'completed' then
+    raise exception 'Completed workouts cannot be deleted';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists scheduled_workouts_protect_delete on public.scheduled_workouts;
+create trigger scheduled_workouts_protect_delete
+before delete on public.scheduled_workouts
+for each row execute function public.prevent_finalized_workout_delete();
+
+create or replace function public.is_proof_path_locked(p_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.scheduled_workouts
+    where proof_screenshot_path = p_name
+  );
+$$;
 
 -- ---------------------------------------------------------------------------
 -- Activity feed and archived winners
@@ -422,5 +533,19 @@ on conflict (id) do update
 set public = false,
     file_size_limit = 102400,
     allowed_mime_types = array['image/webp'];
+
+-- Exercise library media is public read; writes are restricted to the coach/admin.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'exercise-media',
+  'exercise-media',
+  true,
+  2097152,
+  array['image/webp', 'image/gif', 'image/png', 'image/jpeg']
+)
+on conflict (id) do update
+set public = true,
+    file_size_limit = 2097152,
+    allowed_mime_types = array['image/webp', 'image/gif', 'image/png', 'image/jpeg'];
 
 commit;

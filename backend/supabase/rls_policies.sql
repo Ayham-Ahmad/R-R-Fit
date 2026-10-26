@@ -1,4 +1,4 @@
--- NoorFit Studio - Row Level Security
+-- R&R Fit - Row Level Security
 -- Run after backend/supabase/schema.sql.
 begin;
 
@@ -24,10 +24,11 @@ using (
 );
 
 drop policy if exists "profiles_insert_self" on public.profiles;
-create policy "profiles_insert_self"
+drop policy if exists "profiles_insert_admin" on public.profiles;
+create policy "profiles_insert_admin"
 on public.profiles for insert
 to authenticated
-with check (id = auth.uid() or public.is_admin());
+with check (public.is_admin());
 
 drop policy if exists "profiles_update_scope" on public.profiles;
 create policy "profiles_update_scope"
@@ -217,10 +218,12 @@ to authenticated
 using (
   bucket_id = 'workout-proofs'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and not public.is_proof_path_locked(name)
 )
 with check (
   bucket_id = 'workout-proofs'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and not public.is_proof_path_locked(name)
 );
 
 drop policy if exists "workout_proofs_delete_scope" on storage.objects;
@@ -233,6 +236,36 @@ using (
     (storage.foldername(name))[1] = auth.uid()::text
     or public.is_coach_or_admin()
   )
+  and not public.is_proof_path_locked(name)
 );
+
+-- Exercise library media: public files, privileged writes.
+drop policy if exists "exercise_media_read_public" on storage.objects;
+create policy "exercise_media_read_public"
+on storage.objects for select
+to public
+using (bucket_id = 'exercise-media');
+
+drop policy if exists "exercise_media_insert_privileged" on storage.objects;
+create policy "exercise_media_insert_privileged"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'exercise-media'
+  and public.is_coach_or_admin()
+);
+
+drop policy if exists "exercise_media_update_privileged" on storage.objects;
+create policy "exercise_media_update_privileged"
+on storage.objects for update
+to authenticated
+using (bucket_id = 'exercise-media' and public.is_coach_or_admin())
+with check (bucket_id = 'exercise-media' and public.is_coach_or_admin());
+
+drop policy if exists "exercise_media_delete_privileged" on storage.objects;
+create policy "exercise_media_delete_privileged"
+on storage.objects for delete
+to authenticated
+using (bucket_id = 'exercise-media' and public.is_coach_or_admin());
 
 commit;
