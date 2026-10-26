@@ -1,5 +1,6 @@
 import { I18N } from "./i18n.js";
 import "./extra-i18n.js";
+import logoUrl from "../assets/logo.png";
 import { createDrawingAvatar, createStickmanGif } from "./graphics.js";
 import {
   DAY_KEYS,
@@ -315,6 +316,7 @@ function icon(name) {
     unlock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
     shield: '<path d="M12 3 4 6v5c0 5 3.4 8.2 8 10 4.6-1.8 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>',
     key: '<circle cx="7.5" cy="15.5" r="3.5"/><path d="m10.5 12.5 8-8M16 7l2 2M18 5l2 2"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
   };
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.dashboard}</svg>`;
@@ -522,49 +524,29 @@ function renderApp(focus = null) {
   const nav = navItems();
   if (!nav.some((item) => item.view === state.view)) state.view = defaultView(state.profile.role);
   const meta = viewMeta();
+  const activeWeek = currentWeek();
+  const todayLabel = new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const scrollY = window.scrollY;
   document.title = `${brandName()} — ${meta.title}`;
   document.getElementById("app").innerHTML = `
     <div class="app-shell" data-role="${esc(state.profile.role)}">
-      <aside class="sidebar">
-        <div class="sidebar-main">
-          <div class="sidebar-brand-row">
-            <div class="brand-box">
-              <div class="brand-logo">${esc(brandName().charAt(0) || "R")}</div>
-              <div>
-                <div class="brand-title">${esc(brandName())}</div>
-                <div class="brand-subtitle">${t("brandTagline")}</div>
+      <header class="app-topbar">
+        <div class="topbar-inner">
+          <div class="brand-box app-brand">
+            <div class="brand-logo brand-logo-image"><img src="${logoUrl}" alt="" /></div>
+            <div class="brand-copy">
+              <div class="brand-line">
+                <span class="brand-title">${esc(brandName())}</span>
+                <span class="role-badge">${roleLabel(state.profile.role)}</span>
+                <span class="version-badge">BETA</span>
               </div>
+              <span class="brand-subtitle">${t("brandTagline")}</span>
             </div>
-            <button class="btn btn-secondary btn-sm brand-logout" type="button" data-action="logout" title="${t("logoutBtn")}" aria-label="${t("logoutBtn")}">${icon("logout")}</button>
           </div>
-          <nav>
-            <ul class="nav-list">
-              ${nav.map((item) => `
-                <li>
-                  <button class="nav-btn ${state.view === item.view ? "active" : ""}" type="button" data-action="navigate" data-view="${item.view}">
-                    <span class="nav-icon">${icon(item.icon)}</span>
-                    <span>${t(item.label)}</span>
-                  </button>
-                </li>
-              `).join("")}
-            </ul>
-          </nav>
-        </div>
-        <div class="sidebar-footer">
-          <span class="role-badge">${roleLabel(state.profile.role)}</span>
-          <div class="sidebar-user-name">${esc(userName())}</div>
-          <div class="sidebar-user-email">${esc(userEmail())}</div>
-          <button class="btn btn-secondary btn-sm sidebar-logout" type="button" data-action="logout">${t("logoutBtn")}</button>
-        </div>
-      </aside>
-      <div class="main-area">
-        <header class="top-header">
-          <div class="header-title-area">
-            <h1>${meta.title}</h1>
-            <p>${meta.subtitle}</p>
-          </div>
-          <div class="header-actions">
+          <div class="topbar-actions">
+            <button class="topbar-action" type="button" data-action="toggle-language" aria-label="${state.lang === "ar" ? "English" : "العربية"}">
+              ${icon("globe")}<span>${state.lang === "ar" ? "English" : "العربية"}</span>
+            </button>
             <div class="user-chip">
               <span class="avatar"><img src="${userAvatar()}" alt="" /></span>
               <span class="user-meta">
@@ -572,12 +554,34 @@ function renderApp(focus = null) {
                 <span class="user-email">${esc(userEmail())}</span>
               </span>
             </div>
+            <button class="icon-btn topbar-logout" type="button" data-action="logout" title="${t("logoutBtn")}" aria-label="${t("logoutBtn")}">${icon("logout")}</button>
           </div>
-        </header>
-        <main class="workspace" id="workspace">
-          ${renderPage()}
-        </main>
+        </div>
+      </header>
+      <div class="app-navbar">
+        <div class="navbar-inner">
+          <nav class="app-nav" aria-label="${roleLabel(state.profile.role)}">
+            ${nav.map((item) => `
+              <button class="nav-btn ${state.view === item.view ? "active" : ""}" type="button" data-action="navigate" data-view="${item.view}">
+                <span class="nav-icon">${icon(item.icon)}</span>
+                <span>${t(item.label)}</span>
+              </button>
+            `).join("")}
+          </nav>
+          ${activeWeek ? `<span class="nav-context">${weekLabel(activeWeek)}</span>` : ""}
+        </div>
       </div>
+      <main class="workspace" id="workspace">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">${roleLabel(state.profile.role)}</span>
+            <h1>${meta.title}</h1>
+            <p>${meta.subtitle}</p>
+          </div>
+          <span class="page-date">${todayLabel}</span>
+        </div>
+        ${renderPage()}
+      </main>
     </div>
   `;
   if (focus) restoreFocus(focus);
@@ -589,7 +593,7 @@ function renderLoading() {
   document.title = brandName();
   document.getElementById("app").innerHTML = `
     <div class="app-loading" role="status" aria-live="polite">
-      <div class="loading-mark">${esc(brandName().charAt(0) || "R")}</div>
+      <div class="loading-mark loading-mark-image"><img src="${logoUrl}" alt="" /></div>
       <span class="spinner" aria-hidden="true"></span>
       <p>${t("loadingApp")}</p>
     </div>
@@ -602,7 +606,7 @@ function renderWorkspaceError() {
     <div class="fatal-shell">
       <div class="card fatal-card">
         <div class="brand-box fatal-brand">
-          <div class="brand-logo">${esc(brandName().charAt(0) || "R")}</div>
+          <div class="brand-logo brand-logo-image"><img src="${logoUrl}" alt="" /></div>
           <div>
             <div class="brand-title">${esc(brandName())}</div>
             <div class="brand-subtitle">${t("brandTagline")}</div>
@@ -625,7 +629,7 @@ function renderSetup() {
     <div class="setup-shell">
       <div class="card setup-card">
         <div class="brand-box">
-          <div class="brand-logo">R</div>
+          <div class="brand-logo brand-logo-image"><img src="${logoUrl}" alt="" /></div>
           <div>
             <div class="brand-title">R&amp;R Fit</div>
             <div class="brand-subtitle">${t("brandTagline")}</div>
@@ -936,7 +940,7 @@ function renderAuth() {
     <div class="auth-shell">
       <aside class="auth-brand-panel">
         <div class="auth-brand-top">
-          <div class="brand-logo auth-logo">R</div>
+          <div class="brand-logo brand-logo-image auth-logo"><img src="${logoUrl}" alt="" /></div>
           <div>
             <div class="brand-title auth-brand-title">${esc(brand)}</div>
             <div class="brand-subtitle">${t("brandTagline")}</div>
@@ -965,10 +969,10 @@ function renderAuth() {
       <main class="auth-panel">
         <div class="auth-topbar">
           <div class="auth-mobile-top-brand">
-            <div class="brand-logo auth-logo">R</div>
+            <div class="brand-logo brand-logo-image auth-logo"><img src="${logoUrl}" alt="" /></div>
             <div class="brand-title">${esc(brand)}</div>
           </div>
-          <button class="btn btn-secondary btn-sm" type="button" data-action="toggle-language">${state.lang === "ar" ? "English" : "العربية"}</button>
+          <button class="btn btn-secondary btn-sm auth-lang-btn" type="button" data-action="toggle-language">${icon("globe")}<span>${state.lang === "ar" ? "English" : "العربية"}</span></button>
         </div>
         <div class="auth-card">
           ${forms[mode] || forms.login}
@@ -1192,9 +1196,9 @@ function renderAdminSettings() {
 
 function renderThemePicker() {
   const themes = [
-    { id: "v1", name: t("themeBlush"), colors: ["#f3cfc4", "#8f4b2e", "#fff8f2"] },
-    { id: "v2", name: t("themeOlive"), colors: ["#d7d8c4", "#667a56", "#faf9f4"] },
-    { id: "v3", name: t("themeMidnight"), colors: ["#1f1830", "#d6b36a", "#f6efe4"] }
+    { id: "v1", name: t("themeBlush"), colors: ["#7A1C3E", "#C59B27", "#F8F7F4"] },
+    { id: "v2", name: t("themeOlive"), colors: ["#1C1E24", "#C88A9E", "#F4F4F1"] },
+    { id: "v3", name: t("themeMidnight"), colors: ["#A94B66", "#121316", "#FBF8F7"] }
   ];
   return `
     <div class="theme-picker">

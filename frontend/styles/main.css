@@ -3,122 +3,158 @@
    ========================================================================== */
 :root,
 [data-theme="v1"] {
-  /* Version 1: Elegant & Soft */
-  --bg-main: #FCF9F7;
+  /* Version 1: Berry Atelier */
+  --bg-main: #F8F7F4;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #F6EFEA;
-  --bg-accent-soft: #F9E6E8;
-  --text-primary: #2D2628;
-  --text-secondary: #6E5F63;
-  --text-muted: #9A898E;
-  --primary: #C87D87;
-  --primary-hover: #B36872;
+  --bg-subtle: #F2EFE9;
+  --bg-accent-soft: #F9EFF3;
+  --text-primary: #121316;
+  --text-secondary: #525866;
+  --text-muted: #656A73;
+  --primary: #7A1C3E;
+  --primary-hover: #5E142F;
   --primary-contrast: #FFFFFF;
-  --secondary: #8FA895;
-  --secondary-soft: #E9F0EB;
-  --border-color: #ECDFDC;
-  --radius-sm: 12px;
-  --radius-md: 18px;
-  --radius-lg: 26px;
+  --secondary: #8F6D0F;
+  --secondary-soft: #FBF7EB;
+  --border-color: #E4E4E0;
+  --border-strong: #D5D8DF;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
-  --shadow-card: 0 10px 30px -8px rgba(145, 95, 102, 0.09);
-  --shadow-hover: 0 16px 36px -6px rgba(145, 95, 102, 0.15);
-  --font-heading-en: 'Playfair Display', Georgia, serif;
+  --shadow-card: 0 1px 2px rgba(18, 19, 22, 0.04), 0 12px 30px -24px rgba(18, 19, 22, 0.28);
+  --shadow-hover: 0 18px 40px -24px rgba(18, 19, 22, 0.34);
+  --font-heading-en: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-body-en: 'Plus Jakarta Sans', -apple-system, sans-serif;
-  --font-heading-ar: 'Amiri', serif;
-  --font-body-ar: 'Tajawal', sans-serif;
-  --banner-gradient: linear-gradient(135deg, #F9E6E8 0%, #F4EDE6 100%);
+  --font-heading-ar: 'IBM Plex Sans Arabic', sans-serif;
+  --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
+  --banner-gradient: linear-gradient(135deg, #121316 0%, #1C1E24 58%, #2B1721 100%);
   --card-border-width: 1px;
-  /* V1 Winner Styling: Champagne Gold & Soft Blush */
-  --winner-card-bg: linear-gradient(135deg, #FFFDF9 0%, #FBF0EE 55%, #F9EFE2 100%);
-  --winner-border: #DFC28F;
-  --winner-ring: linear-gradient(135deg, #E5C158 0%, #C87D87 50%, #F3E5AB 100%);
-  --winner-glow: 0 12px 34px -4px rgba(212, 175, 55, 0.28);
-  --winner-badge-bg: linear-gradient(135deg, #D4AF37 0%, #C59B27 100%);
-  --reward-banner-bg: linear-gradient(135deg, #FFF8E7 0%, #F9E6E8 100%);
+  --header-bg: #121316;
+  --header-elevated: #1C1E24;
+  --header-border: #2D3039;
+  --header-text: #F8F7F4;
+  --header-muted: #A7ABB3;
+  --berry: #7A1C3E;
+  --berry-hover: #5E142F;
+  --berry-subtle: #F9EFF3;
+  --dusty-rose: #C88A9E;
+  --champagne: #C59B27;
+  --champagne-bg: #FBF7EB;
+  /* V1 Winner Styling: Champagne Gold & Berry */
+  --winner-card-bg: linear-gradient(135deg, #FFFDF9 0%, #FBF7EB 55%, #F9EFF3 100%);
+  --winner-border: #E6CE8A;
+  --winner-ring: linear-gradient(135deg, #C59B27 0%, #7A1C3E 55%, #F3E5AB 100%);
+  --winner-glow: 0 18px 38px -24px rgba(197, 155, 39, 0.42);
+  --winner-badge-bg: linear-gradient(135deg, #C59B27 0%, #8F6D0F 100%);
+  --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F9EFF3 100%);
 }
 
 [data-theme="v2"] {
-  /* Version 2: Modern & Minimal */
-  --bg-main: #F7F7FA;
+  /* Version 2: Graphite Studio */
+  --bg-main: #F4F4F1;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #EFEFF6;
-  --bg-accent-soft: #ECE8F8;
-  --text-primary: #1F1F29;
-  --text-secondary: #57566B;
-  --text-muted: #87869B;
-  --primary: #5D3FD3;
-  --primary-hover: #4A2FB8;
+  --bg-subtle: #ECECE7;
+  --bg-accent-soft: #ECEEF2;
+  --text-primary: #121316;
+  --text-secondary: #4C525C;
+  --text-muted: #5F646C;
+  --primary: #1C1E24;
+  --primary-hover: #121316;
   --primary-contrast: #FFFFFF;
-  --secondary: #987D9A;
-  --secondary-soft: #F2ECF3;
-  --border-color: #E2E1EC;
+  --secondary: #7A1C3E;
+  --secondary-soft: #F9EFF3;
+  --border-color: #DDDCD5;
+  --border-strong: #C9CBCF;
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 8px;
-  --shadow-card: 0 2px 6px rgba(25, 22, 48, 0.04);
-  --shadow-hover: 0 8px 20px rgba(25, 22, 48, 0.08);
+  --shadow-card: 0 1px 2px rgba(18, 19, 22, 0.04), 0 10px 26px -24px rgba(18, 19, 22, 0.24);
+  --shadow-hover: 0 16px 34px -24px rgba(18, 19, 22, 0.3);
   --font-heading-en: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-body-en: 'Plus Jakarta Sans', -apple-system, sans-serif;
-  --font-heading-ar: 'Cairo', sans-serif;
-  --font-body-ar: 'Cairo', sans-serif;
-  --banner-gradient: linear-gradient(135deg, #ECE8F8 0%, #F4F4F9 100%);
+  --font-heading-ar: 'IBM Plex Sans Arabic', sans-serif;
+  --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
+  --banner-gradient: linear-gradient(135deg, #121316 0%, #1C1E24 62%, #20242C 100%);
   --card-border-width: 1px;
-  /* V2 Winner Styling: Clean Restrained Gold & Royal Lavender */
-  --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F6F4FD 65%, #FCF8EE 100%);
-  --winner-border: #D5B869;
-  --winner-ring: linear-gradient(135deg, #D4AF37 0%, #5D3FD3 100%);
-  --winner-glow: 0 8px 24px rgba(93, 63, 211, 0.14);
-  --winner-badge-bg: linear-gradient(135deg, #C9A227 0%, #5D3FD3 100%);
-  --reward-banner-bg: #F6F4FD;
+  --header-bg: #121316;
+  --header-elevated: #1C1E24;
+  --header-border: #2D3039;
+  --header-text: #F8F7F4;
+  --header-muted: #A7ABB3;
+  --berry: #7A1C3E;
+  --berry-hover: #5E142F;
+  --berry-subtle: #F9EFF3;
+  --dusty-rose: #C88A9E;
+  --champagne: #C59B27;
+  --champagne-bg: #FBF7EB;
+  /* V2 Winner Styling: Graphite & Rose */
+  --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F4F4F1 65%, #F9EFF3 100%);
+  --winner-border: #C9CBCF;
+  --winner-ring: linear-gradient(135deg, #C59B27 0%, #1C1E24 60%, #C88A9E 100%);
+  --winner-glow: 0 12px 30px -20px rgba(18, 19, 22, 0.32);
+  --winner-badge-bg: linear-gradient(135deg, #C59B27 0%, #1C1E24 100%);
+  --reward-banner-bg: #F9EFF3;
 }
 
 [data-theme="v3"] {
-  /* Version 3: Warm & Fresh */
-  --bg-main: #FFFBF7;
+  /* Version 3: Dusty Rose */
+  --bg-main: #FBF8F7;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #FDF1E6;
-  --bg-accent-soft: #FCE5D8;
-  --text-primary: #2F2621;
-  --text-secondary: #6E5B50;
-  --text-muted: #9E897C;
-  --primary: #D96B52;
-  --primary-hover: #C2563E;
+  --bg-subtle: #F6EFEA;
+  --bg-accent-soft: #F9EFF3;
+  --text-primary: #171417;
+  --text-secondary: #5C5257;
+  --text-muted: #6B5F63;
+  --primary: #A94B66;
+  --primary-hover: #7A1C3E;
   --primary-contrast: #FFFFFF;
-  --secondary: #7CA388;
-  --secondary-soft: #E6F0E9;
-  --border-color: #F2DFD1;
-  --radius-sm: 14px;
-  --radius-md: 20px;
-  --radius-lg: 28px;
+  --secondary: #8F6D0F;
+  --secondary-soft: #FBF7EB;
+  --border-color: #EDDFDF;
+  --border-strong: #DFC9CE;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
   --radius-pill: 999px;
-  --shadow-card: 0 8px 24px -4px rgba(185, 102, 72, 0.09);
-  --shadow-hover: 0 14px 32px -4px rgba(185, 102, 72, 0.16);
-  --font-heading-en: 'Outfit', sans-serif;
-  --font-body-en: 'Outfit', sans-serif;
-  --font-heading-ar: 'Tajawal', sans-serif;
-  --font-body-ar: 'Tajawal', sans-serif;
-  --banner-gradient: linear-gradient(135deg, #FCE5D8 0%, #FBF2E3 100%);
-  --card-border-width: 2px;
-  /* V3 Winner Styling: Warm Coral, Peach & Sunlit Gold */
-  --winner-card-bg: linear-gradient(135deg, #FFFDF9 0%, #FDECE2 55%, #FBF2D9 100%);
-  --winner-border: #E2B062;
-  --winner-ring: linear-gradient(135deg, #F0B429 0%, #D96B52 60%, #F7D774 100%);
-  --winner-glow: 0 12px 32px -4px rgba(217, 107, 82, 0.22);
-  --winner-badge-bg: linear-gradient(135deg, #E09F24 0%, #D96B52 100%);
-  --reward-banner-bg: linear-gradient(135deg, #FFF6E0 0%, #FCE5D8 100%);
+  --shadow-card: 0 1px 2px rgba(48, 24, 31, 0.04), 0 14px 32px -24px rgba(48, 24, 31, 0.26);
+  --shadow-hover: 0 18px 40px -24px rgba(48, 24, 31, 0.32);
+  --font-heading-en: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-body-en: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-heading-ar: 'IBM Plex Sans Arabic', sans-serif;
+  --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
+  --banner-gradient: linear-gradient(135deg, #1C191F 0%, #2A1B25 60%, #3A1F2B 100%);
+  --card-border-width: 1px;
+  --header-bg: #1C191F;
+  --header-elevated: #28222A;
+  --header-border: #3A3038;
+  --header-text: #FBF8F7;
+  --header-muted: #B7A9AE;
+  --berry: #A94B66;
+  --berry-hover: #7A1C3E;
+  --berry-subtle: #F9EFF3;
+  --dusty-rose: #C88A9E;
+  --champagne: #C59B27;
+  --champagne-bg: #FBF7EB;
+  /* V3 Winner Styling: Dusty Rose & Champagne */
+  --winner-card-bg: linear-gradient(135deg, #FFFDFC 0%, #F9EFF3 55%, #FBF7EB 100%);
+  --winner-border: #DFC9CE;
+  --winner-ring: linear-gradient(135deg, #C59B27 0%, #A94B66 60%, #F3E5AB 100%);
+  --winner-glow: 0 14px 34px -22px rgba(169, 75, 102, 0.34);
+  --winner-badge-bg: linear-gradient(135deg, #C59B27 0%, #A94B66 100%);
+  --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F9EFF3 100%);
 }
 
 :root {
-  --status-success-bg: #E6F4EA;
-  --status-success-text: #1E7E34;
-  --status-danger-bg: #FCE8E6;
-  --status-danger-text: #C5221F;
-  --status-warning-bg: #FEF7E0;
-  --status-warning-text: #B06000;
-  --whatsapp-green: #25D366;
-  --whatsapp-green-dark: #1DA851;
+  --status-success-bg: #EAF6F0;
+  --status-success-text: #157347;
+  --status-danger-bg: #FDF2F2;
+  --status-danger-text: #B91C1C;
+  --status-warning-bg: #FEF5EB;
+  --status-warning-text: #B45309;
+  --whatsapp-green: #157347;
+  --whatsapp-green-dark: #115C39;
   --silver-accent: #9AA4B2;
   --silver-bg: #F1F4F8;
   --bronze-accent: #B87333;

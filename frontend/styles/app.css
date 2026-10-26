@@ -290,7 +290,7 @@
 .activity-row:last-child { border-bottom: none; }
 .activity-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.4; }
 .activity-copy strong { font-size: 0.84rem; font-weight: 600; overflow-wrap: anywhere; }
-.activity-copy span { color: var(--text-muted); font-size: 0.73rem; overflow-wrap: anywhere; }
+.activity-copy > span { color: var(--text-muted); font-size: 0.73rem; overflow-wrap: anywhere; }
 .activity-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .activity-side small { color: var(--text-muted); font-size: 0.68rem; white-space: nowrap; }
 
@@ -1402,73 +1402,3 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   .credential-row > strong { flex: 1 1 200px; }
   .week-progress-card { min-width: 0; width: 100%; }
 }
-
-@media (max-width: 1024px) {
-  html[data-role="coach"] { font-size: 17px; }
-}
-
-@media (max-width: 768px) {
-  html[data-role="coach"] { font-size: 19px; }
-  .app-shell[data-role="coach"] .nav-btn { font-size: 0.95rem; }
-  .app-shell[data-role="coach"] .header-title-area p { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .btn { font-size: 0.95rem; min-height: 44px; }
-  .app-shell[data-role="coach"] .btn-sm { font-size: 0.9rem; min-height: 38px; }
-  .app-shell[data-role="coach"] .badge { font-size: 0.84rem; }
-  .app-shell[data-role="coach"] .eyebrow { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .welcome-card h2 { font-size: 1.5rem; }
-  .app-shell[data-role="coach"] .welcome-card p { font-size: 1rem; }
-  .app-shell[data-role="coach"] .card-header h2 { font-size: 1.25rem; }
-  .app-shell[data-role="coach"] .card-header p { font-size: 0.92rem; line-height: 1.55; }
-  .app-shell[data-role="coach"] .kpi-top { font-size: 0.95rem; }
-  .app-shell[data-role="coach"] .kpi-value { font-size: 1.65rem; }
-  .app-shell[data-role="coach"] .kpi-sub { font-size: 0.88rem; }
-  .app-shell[data-role="coach"] .toolbar-meta { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .form-label { font-size: 0.95rem; }
-  .app-shell[data-role="coach"] .form-hint { font-size: 0.82rem; }
-  .app-shell[data-role="coach"] .activity-copy strong { font-size: 0.98rem; }
-  .app-shell[data-role="coach"] .activity-copy span { font-size: 0.85rem; line-height: 1.5; }
-  .app-shell[data-role="coach"] .snapshot-name { font-size: 0.98rem; }
-  .app-shell[data-role="coach"] .snapshot-meta { font-size: 0.84rem; }
-  .app-shell[data-role="coach"] .snapshot-percent { font-size: 0.92rem; }
-  .app-shell[data-role="coach"] .trainee-list-copy strong { font-size: 0.98rem; }
-  .app-shell[data-role="coach"] .trainee-list-copy > span { font-size: 0.82rem; }
-  .app-shell[data-role="coach"] .trainee-list-copy .badge { font-size: 0.72rem; }
-  .app-shell[data-role="coach"] .builder-title-row h2 { font-size: 1.35rem; }
-  .app-shell[data-role="coach"] .builder-identity p { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .builder-stats span { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .builder-stats strong { font-size: 1.05rem; }
-  .app-shell[data-role="coach"] .day-head h3 { font-size: 1.12rem; }
-  .app-shell[data-role="coach"] .day-head span { font-size: 0.83rem; }
-  .app-shell[data-role="coach"] .day-empty { font-size: 0.92rem; }
-  .app-shell[data-role="coach"] .rest-day-body { font-size: 0.94rem; }
-  .app-shell[data-role="coach"] .workout-chip-main strong { font-size: 0.95rem; }
-  .app-shell[data-role="coach"] .workout-chip-main span { font-size: 0.82rem; }
-  .app-shell[data-role="coach"] .workout-chip-actions .badge { font-size: 0.72rem; }
-  .app-shell[data-role="coach"] .link-btn,
-  .app-shell[data-role="coach"] .add-exercise-btn { font-size: 0.92rem; }
-  .app-shell[data-role="coach"] .exercise-title-row h3 { font-size: 1.12rem; }
-  .app-shell[data-role="coach"] .exercise-body p { font-size: 0.94rem; }
-  .app-shell[data-role="coach"] .exercise-meta span { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .setting-row strong { font-size: 1rem; }
-  .app-shell[data-role="coach"] .setting-row p { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .week-progress-head { font-size: 0.88rem; }
-  .app-shell[data-role="coach"] .week-progress-meta { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .summary-row { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .status-breakdown > div { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .standing-score span { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .archive-week { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .archive-card > strong { font-size: 1rem; }
-  .app-shell[data-role="coach"] .archive-card > span { font-size: 0.84rem; }
-  .app-shell[data-role="coach"] .archive-card > small { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .modal-head h2 { font-size: 1.25rem; }
-  .app-shell[data-role="coach"] .modal-head p { font-size: 0.9rem; }
-  .app-shell[data-role="coach"] .confirm-copy { font-size: 1rem; }
-  .app-shell[data-role="coach"] .proof-guide p { font-size: 0.92rem; }
-  .app-shell[data-role="coach"] .proof-copy-block > span { font-size: 0.8rem; }
-  .app-shell[data-role="coach"] .proof-copy-block p { font-size: 0.95rem; }
-  .app-shell[data-role="coach"] .media-preview span { font-size: 0.85rem; }
-  .app-shell[data-role="coach"] .credential-row > span { font-size: 0.84rem; }
-  .app-shell[data-role="coach"] .credential-row > strong { font-size: 0.95rem; }
-}
-
-
