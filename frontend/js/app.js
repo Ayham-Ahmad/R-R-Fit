@@ -1446,9 +1446,9 @@ function renderAdminSettings() {
 
 function renderThemePicker() {
   const themes = [
-    { id: "v1", name: t("themeBlush"), colors: ["#7A1C3E", "#C59B27", "#F8F7F4"] },
-    { id: "v2", name: t("themeOlive"), colors: ["#1C1E24", "#C88A9E", "#F4F4F1"] },
-    { id: "v3", name: t("themeMidnight"), colors: ["#A94B66", "#121316", "#FBF8F7"] }
+    { id: "v1", name: state.lang === "ar" ? "برهان في الحركة" : "Proof in Motion", colors: ["#D94A4A", "#090A0C", "#F4F1EA"] },
+    { id: "v2", name: state.lang === "ar" ? "غرافيت في الحركة" : "Graphite Motion", colors: ["#D94A4A", "#171A1E", "#F6F5F2"] },
+    { id: "v3", name: state.lang === "ar" ? "كربون في الحركة" : "Carbon Motion", colors: ["#D94A4A", "#090A0C", "#F4F1EA"] }
   ];
   return `
     <div class="theme-picker">
