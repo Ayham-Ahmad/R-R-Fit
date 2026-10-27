@@ -1678,30 +1678,13 @@ html[dir="rtl"] .switch input:checked + span::after {
   gap: 36px;
   padding: 44px 56px;
   border: 0;
-  background: linear-gradient(145deg, #121316 0%, #1C1E24 62%, #2B1721 100%);
-  color: #FFFFFF;
+  background: radial-gradient(circle at top, rgba(232, 92, 74, 0.18), transparent 55%), linear-gradient(160deg, #090A0C 0%, #101318 100%);
+  color: #F6F3EE;
 }
 
-.auth-brand-panel::before {
-  content: "";
-  position: absolute;
-  inset-inline-end: -110px;
-  top: -130px;
-  width: 430px;
-  height: 430px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(200, 138, 158, 0.24), transparent 68%);
-}
-
+.auth-brand-panel::before,
 .auth-brand-panel::after {
-  content: "";
-  position: absolute;
-  inset-inline-start: -140px;
-  bottom: -180px;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(197, 155, 39, 0.14), transparent 70%);
+  display: none;
 }
 
 .auth-brand-top,
@@ -1739,7 +1722,7 @@ html[dir="rtl"] .switch input:checked + span::after {
 }
 
 .auth-brand-copy .eyebrow {
-  color: var(--dusty-rose);
+  color: rgba(246, 243, 238, 0.6);
 }
 
 .auth-brand-copy h2 {
@@ -1796,7 +1779,7 @@ html[lang="ar"] .auth-brand-copy h2 {
   align-items: center;
   justify-content: center;
   padding: 42px 28px;
-  background: radial-gradient(circle at 78% 8%, #FFFFFF 0%, var(--bg-main) 62%);
+  background: #F6F3EE;
 }
 
 .auth-topbar {
@@ -1809,8 +1792,10 @@ html[lang="ar"] .auth-brand-copy h2 {
 }
 
 .auth-lang-btn {
-  border-color: var(--border-strong);
-  background: var(--bg-surface);
+  border-radius: 999px;
+  border: 1px solid rgba(16, 19, 24, 0.12);
+  background: transparent;
+  color: #101318;
 }
 
 .auth-card {
@@ -1821,12 +1806,12 @@ html[lang="ar"] .auth-brand-copy h2 {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 28px;
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  background: var(--bg-surface);
-  box-shadow: 0 24px 70px -50px rgba(18, 19, 22, 0.42);
+  gap: 16px;
+  padding: 34px;
+  border: 1px solid rgba(16, 19, 24, 0.08);
+  border-radius: 18px;
+  background: #FFFFFF;
+  box-shadow: 0 60px 120px -90px rgba(16, 19, 24, 0.9);
 }
 
 .auth-heading {
@@ -1847,8 +1832,12 @@ html[lang="ar"] .auth-brand-copy h2 {
 
 .auth-submit {
   width: 100%;
-  margin-top: 2px;
-  padding: 11px;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 12px 22px;
+  background: linear-gradient(90deg, #E85C4A, #D94A4A);
+  border: none;
+  color: #FFFFFF;
 }
 
 .auth-note {
@@ -2454,16 +2443,17 @@ html[lang="ar"] .auth-brand-copy h2 {
 .landing-shell {
   min-height: 100vh;
   overflow-x: clip;
-  background: var(--bg-main);
-  color: var(--text-primary);
+  background: #090A0C;
+  color: #F6F3EE;
 }
 
 .landing-header {
   position: sticky;
   top: 0;
   z-index: 80;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-main);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 10, 12, 0.92);
+  backdrop-filter: blur(18px);
 }
 
 .landing-header-inner {
@@ -2520,6 +2510,7 @@ html[lang="ar"] .auth-brand-copy h2 {
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  color: #F6F3EE;
 }
 
 html[lang="ar"] .landing-brand-copy strong,
@@ -2529,7 +2520,7 @@ html[lang="ar"] .landing-footer-brand strong {
 }
 
 .landing-brand-copy span {
-  color: var(--text-muted);
+  color: rgba(246, 243, 238, 0.7);
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2546,7 +2537,7 @@ html[lang="ar"] .landing-footer-brand strong {
 .landing-nav a {
   position: relative;
   padding: 8px 0;
-  color: var(--text-secondary);
+  color: rgba(246, 243, 238, 0.78);
   font-size: 0.76rem;
   font-weight: 700;
   text-decoration: none;
@@ -2559,14 +2550,14 @@ html[lang="ar"] .landing-footer-brand strong {
   inset-inline: 0;
   bottom: 2px;
   height: 1px;
-  background: var(--primary);
+  background: var(--accent-ember);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 180ms ease;
 }
 
 .landing-nav a:hover {
-  color: var(--text-primary);
+  color: #F6F3EE;
 }
 
 .landing-nav a:hover::after {
@@ -2591,10 +2582,10 @@ html[dir="rtl"] .landing-nav a::after {
   gap: 7px;
   min-height: 40px;
   padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
   background: transparent;
-  color: var(--text-secondary);
+  color: rgba(246, 243, 238, 0.88);
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
@@ -3236,6 +3227,10 @@ html[lang="ar"] .landing-score-row strong {
   scroll-margin-top: 80px;
 }
 
+.landing-section:nth-of-type(even) {
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.02), transparent 60%);
+}
+
 .landing-section-inner,
 .landing-how > .landing-section-inner,
 .landing-experience-inner,
@@ -3257,18 +3252,22 @@ html[lang="ar"] .landing-score-row strong {
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
-  color: var(--primary);
-  font-size: 0.62rem;
+  color: rgba(246, 243, 238, 0.6);
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .landing-label::before {
   content: "";
-  width: 24px;
+  width: 30px;
   height: 1px;
-  background: currentColor;
+  background: linear-gradient(90deg, var(--accent-ember), transparent);
+}
+
+html[lang="ar"] .landing-label {
+  letter-spacing: 0;
 }
 
 html[lang="ar"] .landing-label {
@@ -3277,25 +3276,27 @@ html[lang="ar"] .landing-label {
 
 .landing-section h2 {
   margin: 0;
-  color: var(--text-primary);
-  font-size: clamp(2rem, 3.9vw, 3.25rem);
+  color: #F6F3EE;
+  font-family: var(--font-heading-en);
+  font-size: clamp(2.2rem, 4vw, 4rem);
   font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.045em;
+  line-height: 1;
+  letter-spacing: -0.06em;
   text-wrap: balance;
 }
 
 html[lang="ar"] .landing-section h2 {
-  line-height: 1.22;
+  font-family: var(--font-heading-ar);
+  line-height: 1.18;
   letter-spacing: 0;
 }
 
 .landing-section-head > p {
   max-width: 620px;
   margin: 18px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.8;
+  color: rgba(246, 243, 238, 0.76);
+  font-size: 0.98rem;
+  line-height: 1.9;
 }
 
 .landing-feature-grid {
@@ -3309,17 +3310,15 @@ html[lang="ar"] .landing-section h2 {
   min-height: 254px;
   padding: 28px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
-  border-radius: 18px;
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-card);
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 100%);
+  transition: transform 180ms ease, border-color 180ms ease;
 }
 
 .landing-feature:hover {
   transform: translateY(-3px);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-hover);
+  border-color: rgba(232, 92, 74, 0.7);
 }
 
 .landing-feature-icon {
@@ -3328,10 +3327,10 @@ html[lang="ar"] .landing-section h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-accent-soft);
-  color: var(--primary);
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: rgba(232, 92, 74, 0.26);
+  color: #F6F3EE;
 }
 
 .landing-feature-icon .icon {
@@ -3443,22 +3442,22 @@ html[lang="ar"] .landing-feature h3 {
 }
 
 .landing-how-cta {
-  margin-top: 36px;
-  padding-inline: 22px;
-  border: 1px solid var(--header-text);
-  background: var(--header-text);
-  color: var(--header-bg);
+  align-self: flex-start;
+  margin-top: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #F6F3EE;
+  padding: 12px 22px;
 }
 
 .landing-how-cta:hover {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-contrast);
+  border-color: rgba(232, 92, 74, 0.9);
   transform: translateY(-1px);
 }
 
 .landing-experience {
-  background: var(--bg-subtle);
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.02), transparent 60%);
 }
 
 .landing-experience-inner {
@@ -3584,64 +3583,50 @@ html[lang="ar"] .landing-feature h3 {
 }
 
 .landing-session {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-color);
+  gap: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 14px 16px;
 }
 
-.landing-session:last-child {
-  border-bottom: 0;
+.landing-session.done {
+  opacity: 0.7;
+}
+
+.landing-session.active {
+  border-color: rgba(232, 92, 74, 0.9);
+  background: linear-gradient(90deg, rgba(232, 92, 74, 0.16), transparent);
 }
 
 .landing-session-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  background: var(--bg-subtle);
-  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.1);
+  color: #F6F3EE;
 }
 
 .landing-session-icon .icon {
-  width: 16px;
-  height: 16px;
-}
-
-.landing-session.done .landing-session-icon {
-  background: #E8F2EC;
-  color: #2F6B4F;
-}
-
-.landing-session.active .landing-session-icon {
-  background: var(--bg-accent-soft);
-  color: var(--primary);
+  width: 18px;
+  height: 18px;
 }
 
 .landing-session > div {
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
 }
 
 .landing-session > div strong {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 0.74rem;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: #F6F3EE;
 }
 
 .landing-session > div span {
-  color: var(--text-muted);
-  font-size: 0.58rem;
-  font-weight: 600;
+  color: rgba(246, 243, 238, 0.6);
 }
 
 .landing-session-state {
@@ -3877,20 +3862,17 @@ html[lang="ar"] .landing-footer-brand span {
   justify-content: center;
   gap: 7px;
   min-height: 38px;
-  padding: 0 11px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 19, 24, 0.12);
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.7rem;
+  color: #101318;
+  font-size: 0.72rem;
   font-weight: 700;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease;
 }
 
 .auth-home-btn:hover {
-  background: var(--bg-subtle);
-  color: var(--text-primary);
+  background: rgba(16, 19, 24, 0.04);
 }
 
 .auth-home-btn .icon {
