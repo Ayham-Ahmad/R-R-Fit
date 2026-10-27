@@ -802,7 +802,10 @@ html[lang="ar"] .app-brand .brand-title {
 }
 
 .table-wrap {
-  border-radius: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 19, 24, 0.08);
+  overflow: hidden;
+  background: #FFFFFF;
 }
 
 table {
@@ -811,22 +814,26 @@ table {
 
 th,
 td {
-  padding: 13px 14px;
-  border-bottom: 1px solid #ECEBE7;
-  font-size: 0.82rem;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(16, 19, 24, 0.06);
+  font-size: 0.88rem;
 }
 
 th {
-  background: #FBFAF7;
-  color: var(--text-muted);
-  font-size: 0.66rem;
+  background: #F8F6F1;
+  color: rgba(16, 19, 24, 0.6);
+  font-size: 0.7rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .data-table tbody tr:hover {
-  background: #FCFBF9;
+  background: #FBF9F6;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .form-grid {
@@ -843,24 +850,27 @@ th {
 }
 
 .form-label {
-  color: var(--text-secondary);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: rgba(16, 19, 24, 0.7);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .form-control {
   width: 100%;
-  min-height: 38px;
-  padding: 9px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 0.82rem;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid rgba(16, 19, 24, 0.12);
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: #101318;
+  font-size: 0.92rem;
   outline: none;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.form-control:focus {
+  border-color: rgba(232, 92, 74, 0.9);
+  box-shadow: 0 0 0 4px rgba(232, 92, 74, 0.08);
 }
 
 .form-control:focus {
