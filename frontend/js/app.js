@@ -121,7 +121,7 @@ const REMEMBER_EMAIL_COOKIE = "rr_remember_email";
 const state = {
   lang: readPreference(LANG_KEY, DEFAULT_LANG),
   theme: readPreference(THEME_KEY, DEFAULT_THEME),
-  authMode: "login",
+  authMode: "landing",
   authError: "",
   authNotice: "",
   authEmail: "",
@@ -752,7 +752,7 @@ function boot() {
     if (event === "SIGNED_OUT" && !state.loading && state.profile) {
       state.profile = null;
       state.session = null;
-      state.authMode = "login";
+      state.authMode = "landing";
       renderAuth();
     }
   });
@@ -772,6 +772,7 @@ async function bootSession() {
     if (auth.session && !auth.profile) {
       await logout();
       state.loading = false;
+      state.authMode = "login";
       state.authError = t("errProfileMissing");
       renderAuth();
       return;
@@ -784,6 +785,7 @@ async function bootSession() {
     renderAuth();
   } catch (error) {
     state.loading = false;
+    state.authMode = "login";
     state.authError = errorMessage(error);
     renderAuth();
   }
@@ -869,8 +871,253 @@ async function refreshProfileState() {
   if (profile) state.profile = profile;
 }
 
+function renderLanding() {
+  const brand = brandName();
+  const languageLabel = state.lang === "ar" ? "English" : "العربية";
+  const year = new Date().getFullYear();
+  const weekDays = [
+    ["Mon", "done"],
+    ["Tue", "done"],
+    ["Wed", "today"],
+    ["Thu", "done"],
+    ["Fri", "done"],
+    ["Sat", "rest"],
+    ["Sun", "pending"]
+  ];
+  document.title = `${brand} — ${t("landingMetaTitle")}`;
+  document.getElementById("app").innerHTML = `
+    <div class="landing-shell" id="top">
+      <header class="landing-header">
+        <div class="landing-header-inner">
+          <a class="landing-brand" href="#top" aria-label="${esc(brand)}">
+            <span class="landing-logo"><img src="${logoUrl}" alt="" /></span>
+            <span class="landing-brand-copy">
+              <strong>${esc(brand)}</strong>
+              <span>${t("landingFooterTagline")}</span>
+            </span>
+          </a>
+          <nav class="landing-nav" aria-label="${t("landingEyebrow")}">
+            <a href="#method">${t("landingNavMethod")}</a>
+            <a href="#how-it-works">${t("landingNavHow")}</a>
+            <a href="#experience">${t("landingNavExperience")}</a>
+          </nav>
+          <div class="landing-header-actions">
+            <button class="landing-lang" type="button" data-action="toggle-language" aria-label="${languageLabel}">
+              ${icon("globe")}<span>${languageLabel}</span>
+            </button>
+            <button class="btn btn-secondary landing-signin" type="button" data-auth-mode="login">${t("landingSignIn")}</button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="landing-hero">
+          <div class="landing-hero-inner">
+            <div class="landing-hero-copy">
+              <span class="landing-kicker"><i></i>${t("landingEyebrow")}</span>
+              <h1>${t("landingHeroTitle")}</h1>
+              <p>${t("landingHeroBody")}</p>
+              <div class="landing-hero-actions">
+                <button class="btn btn-primary landing-primary" type="button" data-auth-mode="login">
+                  <span>${t("landingStartBtn")}</span>${icon("arrow")}
+                </button>
+                <a class="btn btn-secondary landing-secondary" href="#how-it-works">${t("landingLearnMore")}</a>
+              </div>
+              <p class="landing-hero-note">${icon("lock")}<span>${t("landingHeroNote")}</span></p>
+              <ul class="landing-trust">
+                <li>${icon("check")}<span>${t("landingTrust1")}</span></li>
+                <li>${icon("check")}<span>${t("landingTrust2")}</span></li>
+                <li>${icon("check")}<span>${t("landingTrust3")}</span></li>
+              </ul>
+            </div>
+
+            <div class="landing-hero-visual" aria-hidden="true">
+              <span class="landing-visual-orbit orbit-one"></span>
+              <span class="landing-visual-orbit orbit-two"></span>
+              <div class="landing-visual-main">
+                <div class="landing-visual-top">
+                  <div class="landing-visual-title">
+                    <span class="landing-visual-icon">${icon("calendar")}</span>
+                    <div><span>${t("landingVisualWeek")}</span><strong>${t("landingVisualScore")}</strong></div>
+                  </div>
+                  <span class="landing-week-badge">${t("landingVisualWeekBadge")}</span>
+                </div>
+                <div class="landing-score-row">
+                  <strong>78%</strong>
+                  <span>${t("landingVisualPace")}</span>
+                </div>
+                <div class="landing-score-bar"><span></span></div>
+                <div class="landing-visual-stats">
+                  <div><strong>${t("landingVisualSessions")}</strong><span>${t("landingVisualSessionsLabel")}</span></div>
+                  <div><strong>${t("landingVisualStreak")}</strong><span>${t("landingVisualStreakLabel")}</span></div>
+                </div>
+                <div class="landing-next-session">
+                  <span class="landing-next-icon">${icon("dumbbell")}</span>
+                  <div>
+                    <span>${t("landingVisualNext")}</span>
+                    <strong>${t("landingVisualWorkout")}</strong>
+                    <small>${t("landingVisualWorkoutMeta")}</small>
+                  </div>
+                  <span class="landing-status">${t("landingVisualUpNext")}</span>
+                </div>
+              </div>
+              <div class="landing-proof-card">
+                <span class="landing-proof-icon">${icon("check")}</span>
+                <div><strong>${t("landingVisualReviewed")}</strong><span>${t("landingVisualReviewedBody")}</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-section landing-method" id="method">
+          <div class="landing-section-inner">
+            <div class="landing-section-head">
+              <span class="landing-label">${t("landingMethodLabel")}</span>
+              <h2>${t("landingMethodTitle")}</h2>
+              <p>${t("landingMethodBody")}</p>
+            </div>
+            <div class="landing-feature-grid">
+              <article class="landing-feature">
+                <span class="landing-feature-icon">${icon("calendar")}</span>
+                <span class="landing-feature-index">01</span>
+                <h3>${t("landingFeature1Title")}</h3>
+                <p>${t("landingFeature1Body")}</p>
+              </article>
+              <article class="landing-feature">
+                <span class="landing-feature-icon">${icon("shield")}</span>
+                <span class="landing-feature-index">02</span>
+                <h3>${t("landingFeature2Title")}</h3>
+                <p>${t("landingFeature2Body")}</p>
+              </article>
+              <article class="landing-feature">
+                <span class="landing-feature-icon">${icon("trophy")}</span>
+                <span class="landing-feature-index">03</span>
+                <h3>${t("landingFeature3Title")}</h3>
+                <p>${t("landingFeature3Body")}</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-section landing-how" id="how-it-works">
+          <div class="landing-section-inner">
+            <div class="landing-how-head">
+              <div>
+                <span class="landing-label">${t("landingHowLabel")}</span>
+                <h2>${t("landingHowTitle")}</h2>
+              </div>
+              <p>${t("landingHowBody")}</p>
+            </div>
+            <div class="landing-steps">
+              <article class="landing-step">
+                <span class="landing-step-number">01</span>
+                <h3>${t("landingStep1Title")}</h3>
+                <p>${t("landingStep1Body")}</p>
+              </article>
+              <article class="landing-step">
+                <span class="landing-step-number">02</span>
+                <h3>${t("landingStep2Title")}</h3>
+                <p>${t("landingStep2Body")}</p>
+              </article>
+              <article class="landing-step">
+                <span class="landing-step-number">03</span>
+                <h3>${t("landingStep3Title")}</h3>
+                <p>${t("landingStep3Body")}</p>
+              </article>
+            </div>
+            <button class="btn landing-how-cta" type="button" data-auth-mode="login">${t("landingHowCta")}${icon("arrow")}</button>
+          </div>
+        </section>
+
+        <section class="landing-section landing-experience" id="experience">
+          <div class="landing-experience-inner">
+            <div class="landing-plan-visual" aria-hidden="true">
+              <div class="landing-plan-card">
+                <div class="landing-plan-head">
+                  <div><span>${t("landingVisualPlanTitle")}</span><strong>${t("landingVisualPlanScore")}</strong></div>
+                  <span class="landing-week-badge">${t("landingVisualWeekBadge")}</span>
+                </div>
+                <div class="landing-week-row">
+                  ${weekDays.map(([day, status]) => `<div class="landing-day ${status}"><span>${t(`dayShort${day}`)}</span><i></i></div>`).join("")}
+                </div>
+                <div class="landing-session-list">
+                  <div class="landing-session done">
+                    <span class="landing-session-icon">${icon("check")}</span>
+                    <div><strong>${t("landingVisualSession1")}</strong><span>${t("landingVisualDone")}</span></div>
+                    <span class="landing-session-state">${t("landingVisualDone")}</span>
+                  </div>
+                  <div class="landing-session active">
+                    <span class="landing-session-icon">${icon("dumbbell")}</span>
+                    <div><strong>${t("landingVisualSession2")}</strong><span>${t("landingVisualWorkoutMeta")}</span></div>
+                    <span class="landing-session-state">${t("landingVisualUpNext")}</span>
+                  </div>
+                  <div class="landing-session rest">
+                    <span class="landing-session-icon">${icon("check")}</span>
+                    <div><strong>${t("landingVisualRest")}</strong><span>${t("landingVisualDone")}</span></div>
+                    <span class="landing-session-state">${t("landingVisualDone")}</span>
+                  </div>
+                </div>
+                <p class="landing-plan-note">${t("landingVisualNote")}</p>
+              </div>
+            </div>
+
+            <div class="landing-experience-copy">
+              <span class="landing-label">${t("landingExperienceLabel")}</span>
+              <h2>${t("landingExperienceTitle")}</h2>
+              <p>${t("landingExperienceBody")}</p>
+              <ul class="landing-experience-points">
+                <li><span>01</span><div><strong>${t("landingExperiencePoint1")}</strong><p>${t("landingExperiencePoint1Body")}</p></div></li>
+                <li><span>02</span><div><strong>${t("landingExperiencePoint2")}</strong><p>${t("landingExperiencePoint2Body")}</p></div></li>
+                <li><span>03</span><div><strong>${t("landingExperiencePoint3")}</strong><p>${t("landingExperiencePoint3Body")}</p></div></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-final">
+          <div class="landing-final-card">
+            <div>
+              <span class="landing-label">${t("landingFinalEyebrow")}</span>
+              <h2>${t("landingFinalTitle")}</h2>
+              <p>${t("landingFinalBody")}</p>
+            </div>
+            <div class="landing-final-actions">
+              <button class="btn btn-secondary" type="button" data-auth-mode="login">${t("landingFinalBtn")}</button>
+              <a class="landing-text-link" href="#method">${t("landingFinalSecondary")} ${icon("arrow")}</a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="landing-footer">
+        <div class="landing-footer-inner">
+          <div class="landing-footer-brand">
+            <span class="landing-logo"><img src="${logoUrl}" alt="" /></span>
+            <div><strong>${esc(brand)}</strong><span>${t("landingFooterTagline")}</span></div>
+          </div>
+          <p class="landing-footer-note">${t("landingFooterNote")}</p>
+          <div class="landing-footer-actions">
+            <button class="landing-lang" type="button" data-action="toggle-language" aria-label="${languageLabel}">
+              ${icon("globe")}<span>${languageLabel}</span>
+            </button>
+            <button class="btn btn-secondary landing-signin" type="button" data-auth-mode="login">${t("landingSignIn")}</button>
+          </div>
+        </div>
+        <div class="landing-footer-bottom">
+          <span>© ${year} ${esc(brand)}. ${t("landingCopyright")}</span>
+          <span>${t("landingMetaTitle")}</span>
+        </div>
+      </footer>
+    </div>
+  `;
+}
+
 function renderAuth() {
   applyDocumentPreferences();
+  if (state.authMode === "landing") {
+    renderLanding();
+    return;
+  }
   const mode = state.authMode;
   const brand = state.lang === "ar" ? DEFAULT_SETTINGS.websiteNameAr : DEFAULT_SETTINGS.websiteNameEn;
   const tagline = t("authTagline");
@@ -972,7 +1219,10 @@ function renderAuth() {
             <div class="brand-logo brand-logo-image auth-logo"><img src="${logoUrl}" alt="" /></div>
             <div class="brand-title">${esc(brand)}</div>
           </div>
-          <button class="btn btn-secondary btn-sm auth-lang-btn" type="button" data-action="toggle-language">${icon("globe")}<span>${state.lang === "ar" ? "English" : "العربية"}</span></button>
+          <div class="auth-topbar-actions">
+            <button class="auth-home-btn" type="button" data-auth-mode="landing">${icon("arrow")}<span>${t("landingBackHome")}</span></button>
+            <button class="btn btn-secondary btn-sm auth-lang-btn" type="button" data-action="toggle-language">${icon("globe")}<span>${state.lang === "ar" ? "English" : "العربية"}</span></button>
+          </div>
         </div>
         <div class="auth-card">
           ${forms[mode] || forms.login}
@@ -2905,6 +3155,7 @@ function bindEvents() {
       state.authError = "";
       state.authNotice = "";
       renderAuth();
+      window.scrollTo(0, 0);
       return;
     }
     const actionButton = event.target.closest("[data-action]");
@@ -2965,7 +3216,7 @@ function bindEvents() {
       state.coach = null;
       state.trainee = null;
       state.leaderboard = null;
-      state.authMode = "login";
+      state.authMode = "landing";
       state.authError = "";
       state.authNotice = "";
       renderAuth();
