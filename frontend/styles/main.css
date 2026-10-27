@@ -4,146 +4,173 @@
 :root,
 [data-theme="v1"] {
   /* Version 1: Proof in Motion */
-  --bg-main: #F4F1EA;
+  --bg-ink: #090A0C;
+  --bg-carbon: #101318;
+  --bg-bone: #F6F3EE;
+  --bg-paper: #FFFFFF;
+  --bg-main: #F6F3EE;
   --bg-surface: #FFFFFF;
   --bg-subtle: #F7F4EE;
   --bg-accent-soft: #F5F3EE;
-  --text-primary: #090A0C;
-  --text-secondary: #3F434A;
+  --text-primary: #101318;
+  --text-secondary: #4F5560;
   --text-muted: #6B7078;
-  --primary: #D94A4A;
-  --primary-hover: #B63C3C;
+  --primary: #E85C4A;
+  --primary-hover: #D94A4A;
   --primary-contrast: #FFFFFF;
-  --secondary: #171A1E;
+  --secondary: #101318;
   --secondary-soft: #F5F3EE;
   --border-color: #E7E3DC;
   --border-strong: #D7D1C7;
+  --border-subtle: rgba(255, 255, 255, 0.08);
   --radius-sm: 10px;
   --radius-md: 12px;
   --radius-lg: 14px;
   --radius-pill: 999px;
   --shadow-card: 0 1px 2px rgba(9, 10, 12, 0.02), 0 20px 40px -30px rgba(9, 10, 12, 0.4);
   --shadow-hover: 0 24px 50px -28px rgba(9, 10, 12, 0.5);
+  --shadow-soft: 0 40px 80px -60px rgba(0, 0, 0, 0.9);
   --font-heading-en: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body-en: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading-ar: 'Cairo', 'IBM Plex Sans Arabic', sans-serif;
   --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
-  --banner-gradient: linear-gradient(135deg, #090A0C 0%, #171A1E 100%);
+  --banner-gradient: linear-gradient(135deg, #090A0C 0%, #101318 100%);
   --card-border-width: 1px;
   --header-bg: #090A0C;
-  --header-elevated: #171A1E;
+  --header-elevated: #101318;
   --header-border: rgba(255, 255, 255, 0.08);
-  --header-text: #F4F1EA;
-  --header-muted: rgba(244, 241, 234, 0.72);
+  --header-text: #F6F3EE;
+  --header-muted: rgba(246, 243, 238, 0.72);
   --berry: #7A1C3E;
   --berry-hover: #5E142F;
   --berry-subtle: #F9EFF3;
   --dusty-rose: #C88A9E;
-  --champagne: #C59B27;
+  --champagne: #B9A06C;
   --champagne-bg: #FBF7EB;
-  --accent-success: #20BFA4;
+  --accent-ember: #E85C4A;
+  --accent-mint: #22C55E;
+  --accent-gold: #B9A06C;
+  --accent-success: #22C55E;
   /* Winner Styling */
   --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F7F4EE 100%);
   --winner-border: #E7E3DC;
-  --winner-ring: linear-gradient(135deg, #C59B27 0%, #D94A4A 100%);
-  --winner-glow: 0 18px 40px -28px rgba(197, 155, 39, 0.4);
-  --winner-badge-bg: linear-gradient(135deg, #C59B27 0%, #8F6D0F 100%);
+  --winner-ring: linear-gradient(135deg, #B9A06C 0%, #E85C4A 100%);
+  --winner-glow: 0 18px 40px -28px rgba(185, 160, 108, 0.4);
+  --winner-badge-bg: linear-gradient(135deg, #B9A06C 0%, #8F6D0F 100%);
   --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F7F4EE 100%);
 }
 
 [data-theme="v2"] {
   /* Version 2: Graphite Motion */
-  --bg-main: #F6F5F2;
+  --bg-ink: #090A0C;
+  --bg-carbon: #101318;
+  --bg-bone: #F6F3EE;
+  --bg-paper: #FFFFFF;
+  --bg-main: #F6F3EE;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #F0EEEA;
-  --bg-accent-soft: #F4F2ED;
-  --text-primary: #090A0C;
-  --text-secondary: #3F434A;
+  --bg-subtle: #F7F4EE;
+  --bg-accent-soft: #F5F3EE;
+  --text-primary: #101318;
+  --text-secondary: #4F5560;
   --text-muted: #6B7078;
-  --primary: #D94A4A;
-  --primary-hover: #B63C3C;
+  --primary: #E85C4A;
+  --primary-hover: #D94A4A;
   --primary-contrast: #FFFFFF;
-  --secondary: #171A1E;
-  --secondary-soft: #F4F2ED;
-  --border-color: #E5E1DA;
-  --border-strong: #D5CFC4;
+  --secondary: #101318;
+  --secondary-soft: #F5F3EE;
+  --border-color: #E7E3DC;
+  --border-strong: #D7D1C7;
+  --border-subtle: rgba(255, 255, 255, 0.08);
   --radius-sm: 10px;
   --radius-md: 12px;
   --radius-lg: 14px;
   --radius-pill: 999px;
   --shadow-card: 0 1px 2px rgba(9, 10, 12, 0.02), 0 18px 38px -30px rgba(9, 10, 12, 0.38);
   --shadow-hover: 0 22px 48px -28px rgba(9, 10, 12, 0.48);
+  --shadow-soft: 0 40px 80px -60px rgba(0, 0, 0, 0.9);
   --font-heading-en: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body-en: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading-ar: 'Cairo', 'IBM Plex Sans Arabic', sans-serif;
   --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
-  --banner-gradient: linear-gradient(135deg, #090A0C 0%, #171A1E 100%);
+  --banner-gradient: linear-gradient(135deg, #090A0C 0%, #101318 100%);
   --card-border-width: 1px;
   --header-bg: #090A0C;
-  --header-elevated: #171A1E;
+  --header-elevated: #101318;
   --header-border: rgba(255, 255, 255, 0.08);
-  --header-text: #F4F1EA;
-  --header-muted: rgba(244, 241, 234, 0.72);
+  --header-text: #F6F3EE;
+  --header-muted: rgba(246, 243, 238, 0.72);
   --berry: #7A1C3E;
   --berry-hover: #5E142F;
   --berry-subtle: #F9EFF3;
   --dusty-rose: #C88A9E;
-  --champagne: #C59B27;
+  --champagne: #B9A06C;
   --champagne-bg: #FBF7EB;
-  --accent-success: #20BFA4;
-  --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F6F5F2 100%);
-  --winner-border: #E5E1DA;
-  --winner-ring: linear-gradient(135deg, #C59B27 0%, #D94A4A 100%);
-  --winner-glow: 0 18px 38px -28px rgba(197, 155, 39, 0.38);
-  --winner-badge-bg: linear-gradient(135deg, #C59B27 0%, #8F6D0F 100%);
-  --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F6F5F2 100%);
+  --accent-ember: #E85C4A;
+  --accent-mint: #22C55E;
+  --accent-gold: #B9A06C;
+  --accent-success: #22C55E;
+  --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F7F4EE 100%);
+  --winner-border: #E7E3DC;
+  --winner-ring: linear-gradient(135deg, #B9A06C 0%, #E85C4A 100%);
+  --winner-glow: 0 18px 38px -28px rgba(185, 160, 108, 0.38);
+  --winner-badge-bg: linear-gradient(135deg, #B9A06C 0%, #8F6D0F 100%);
+  --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F7F4EE 100%);
 }
 
 [data-theme="v3"] {
   /* Version 3: Carbon Motion */
-  --bg-main: #F4F1EA;
+  --bg-ink: #090A0C;
+  --bg-carbon: #101318;
+  --bg-bone: #F6F3EE;
+  --bg-paper: #FFFFFF;
+  --bg-main: #F6F3EE;
   --bg-surface: #FFFFFF;
   --bg-subtle: #F7F4EE;
   --bg-accent-soft: #F5F3EE;
-  --text-primary: #090A0C;
-  --text-secondary: #3F434A;
+  --text-primary: #101318;
+  --text-secondary: #4F5560;
   --text-muted: #6B7078;
-  --primary: #D94A4A;
-  --primary-hover: #B63C3C;
+  --primary: #E85C4A;
+  --primary-hover: #D94A4A;
   --primary-contrast: #FFFFFF;
-  --secondary: #090A0C;
+  --secondary: #101318;
   --secondary-soft: #F5F3EE;
   --border-color: #E7E3DC;
   --border-strong: #D7D1C7;
+  --border-subtle: rgba(255, 255, 255, 0.08);
   --radius-sm: 10px;
   --radius-md: 12px;
   --radius-lg: 14px;
   --radius-pill: 999px;
   --shadow-card: 0 1px 2px rgba(9, 10, 12, 0.02), 0 20px 40px -30px rgba(9, 10, 12, 0.4);
   --shadow-hover: 0 24px 50px -28px rgba(9, 10, 12, 0.5);
+  --shadow-soft: 0 40px 80px -60px rgba(0, 0, 0, 0.9);
   --font-heading-en: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body-en: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading-ar: 'Cairo', 'IBM Plex Sans Arabic', sans-serif;
   --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
-  --banner-gradient: linear-gradient(135deg, #090A0C 0%, #171A1E 100%);
+  --banner-gradient: linear-gradient(135deg, #090A0C 0%, #101318 100%);
   --card-border-width: 1px;
   --header-bg: #090A0C;
-  --header-elevated: #171A1E;
+  --header-elevated: #101318;
   --header-border: rgba(255, 255, 255, 0.08);
-  --header-text: #F4F1EA;
-  --header-muted: rgba(244, 241, 234, 0.72);
+  --header-text: #F6F3EE;
+  --header-muted: rgba(246, 243, 238, 0.72);
   --berry: #7A1C3E;
   --berry-hover: #5E142F;
   --berry-subtle: #F9EFF3;
   --dusty-rose: #C88A9E;
-  --champagne: #C59B27;
+  --champagne: #B9A06C;
   --champagne-bg: #FBF7EB;
-  --accent-success: #20BFA4;
+  --accent-ember: #E85C4A;
+  --accent-mint: #22C55E;
+  --accent-gold: #B9A06C;
+  --accent-success: #22C55E;
   --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F7F4EE 100%);
   --winner-border: #E7E3DC;
-  --winner-ring: linear-gradient(135deg, #C59B27 0%, #D94A4A 100%);
-  --winner-glow: 0 18px 40px -28px rgba(197, 155, 39, 0.4);
-  --winner-badge-bg: linear-gradient(135deg, #C59B27 0%, #8F6D0F 100%);
+  --winner-ring: linear-gradient(135deg, #B9A06C 0%, #E85C4A 100%);
+  --winner-glow: 0 18px 40px -28px rgba(185, 160, 108, 0.4);
+  --winner-badge-bg: linear-gradient(135deg, #B9A06C 0%, #8F6D0F 100%);
   --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F7F4EE 100%);
 }
 
@@ -165,10 +192,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html[lang="en"] body { font-family: var(--font-body-en); direction: ltr; text-align: left; }
-html[lang="en"] h1, html[lang="en"] h2, html[lang="en"] h3, html[lang="en"] h4, html[lang="en"] .brand-title { font-family: var(--font-heading-en); }
+html[lang="en"] h1, html[lang="en"] h2, html[lang="en"] h3, html[lang="en"] h4, html[lang="en"] .brand-title { font-family: var(--font-heading-en); letter-spacing: -0.03em; }
 
 html[lang="ar"] body { font-family: var(--font-body-ar); direction: rtl; text-align: right; }
-html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4, html[lang="ar"] .brand-title { font-family: var(--font-heading-ar); }
+html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4, html[lang="ar"] .brand-title { font-family: var(--font-heading-ar); letter-spacing: 0; font-weight: 800; }
 
 body {
   background-color: var(--bg-main);
