@@ -795,8 +795,8 @@ html[lang="ar"] .welcome-card h2 {
 }
 
 .badge-info {
-  border-color: #EBCAD7;
-  background: var(--berry-subtle);
+  border-color: rgba(232, 92, 74, 0.25);
+  background: var(--bg-accent-soft);
   color: var(--primary);
 }
 
@@ -1228,7 +1228,7 @@ html[dir="rtl"] .switch input:checked + span::after {
 }
 
 .rest-day-body > span {
-  color: var(--champagne);
+  color: var(--champagne-text, #7A5C1E);
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -1861,8 +1861,8 @@ html[lang="ar"] .auth-brand-copy h2 {
 }
 
 .auth-message.info {
-  border-color: #EBCAD7;
-  background: var(--berry-subtle);
+  border-color: rgba(232, 92, 74, 0.25);
+  background: var(--bg-accent-soft);
   color: var(--text-primary);
 }
 
