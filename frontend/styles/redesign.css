@@ -2868,7 +2868,8 @@ html[lang="ar"] .landing-hero h1 {
 
 html[dir="ltr"] .landing-primary .icon,
 html[dir="ltr"] .landing-how-cta .icon,
-html[dir="ltr"] .landing-text-link .icon {
+html[dir="ltr"] .landing-text-link .icon,
+html[dir="ltr"] .link-btn .icon {
   transform: rotate(180deg);
 }
 
@@ -3587,7 +3588,11 @@ html[lang="ar"] .landing-feature h3 {
 }
 
 .landing-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 22px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-color);
 }
 
@@ -3596,17 +3601,18 @@ html[lang="ar"] .landing-feature h3 {
   align-items: center;
   gap: 14px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  padding: 12px 14px;
 }
 
 .landing-session.done {
-  opacity: 0.7;
+  opacity: 0.78;
 }
 
 .landing-session.active {
-  border-color: rgba(232, 92, 74, 0.9);
-  background: linear-gradient(90deg, rgba(232, 92, 74, 0.16), transparent);
+  border-color: var(--primary);
+  background: linear-gradient(90deg, rgba(232, 92, 74, 0.12), rgba(232, 92, 74, 0.03));
 }
 
 .landing-session-icon {
@@ -3616,8 +3622,9 @@ html[lang="ar"] .landing-feature h3 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.12);
-  color: #F6F3EE;
+  background: var(--bg-accent-soft);
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .landing-session-icon .icon {
@@ -3625,17 +3632,27 @@ html[lang="ar"] .landing-feature h3 {
   height: 18px;
 }
 
+.landing-session.done .landing-session-icon {
+  background: #E8F2EC;
+  color: #2F6B4F;
+}
+
 .landing-session > div {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .landing-session > div strong {
-  color: #F6F3EE;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .landing-session > div span {
-  color: rgba(246, 243, 238, 0.72);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
 }
 
 .landing-session-state {
@@ -3670,9 +3687,9 @@ html[lang="ar"] .landing-feature h3 {
 .landing-experience-copy > p {
   max-width: 520px;
   margin: 18px 0 0;
-  color: rgba(246, 243, 238, 0.78);
-  font-size: 0.94rem;
-  line-height: 1.9;
+  color: rgba(246, 243, 238, 0.76);
+  font-size: 0.92rem;
+  line-height: 1.8;
 }
 
 .landing-experience-points {
@@ -3686,7 +3703,16 @@ html[lang="ar"] .landing-feature h3 {
   grid-template-columns: 32px minmax(0, 1fr);
   gap: 12px;
   padding: 16px 0;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.landing-experience-points li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.landing-experience-points li:last-child {
+  padding-bottom: 0;
 }
 
 .landing-experience-points li > span {
@@ -3701,20 +3727,20 @@ html[lang="ar"] .landing-feature h3 {
 .landing-experience-points strong {
   display: block;
   color: #F6F3EE;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 800;
 }
 
 .landing-experience-points p {
   margin: 5px 0 0;
-  color: rgba(246, 243, 238, 0.76);
-  font-size: 0.88rem;
-  line-height: 1.8;
+  color: rgba(246, 243, 238, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.65;
 }
 
 .landing-final {
   padding: clamp(54px, 7vw, 92px) 28px;
-  background: var(--bg-main);
+  background: transparent;
 }
 
 .landing-final-card {
@@ -3757,6 +3783,19 @@ html[lang="ar"] .landing-feature h3 {
 .landing-final-actions .btn {
   min-height: 48px;
   padding-inline: 22px;
+}
+
+.landing-final-actions .btn.btn-secondary {
+  background: #FFFFFF;
+  border-color: #FFFFFF;
+  color: #101318;
+}
+
+.landing-final-actions .btn.btn-secondary:hover {
+  background: #F6F3EE;
+  border-color: #F6F3EE;
+  color: #090A0C;
+  transform: translateY(-1px);
 }
 
 .landing-text-link {
@@ -3810,7 +3849,7 @@ html[lang="ar"] .landing-feature h3 {
 }
 
 .landing-footer-brand span {
-  color: rgba(246, 243, 238, 0.7);
+  color: rgba(246, 243, 238, 0.64);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -3843,8 +3882,8 @@ html[lang="ar"] .landing-footer-brand span {
   justify-content: space-between;
   gap: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(246, 243, 238, 0.6);
-  font-size: 0.6rem;
+  color: rgba(246, 243, 238, 0.56);
+  font-size: 0.65rem;
 }
 
 .landing-shell a:focus-visible,
