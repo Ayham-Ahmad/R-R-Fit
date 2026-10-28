@@ -78,7 +78,7 @@ html[lang="ar"] h4 {
   flex-direction: column;
   align-items: stretch;
   min-height: 100vh;
-  background: var(--bg-main);
+  background: #F6F3EE;
 }
 
 .app-topbar {
@@ -881,11 +881,6 @@ th {
 .form-control:focus {
   border-color: rgba(232, 92, 74, 0.9);
   box-shadow: 0 0 0 4px rgba(232, 92, 74, 0.08);
-}
-
-.form-control:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--berry-subtle);
 }
 
 .form-control::placeholder {
