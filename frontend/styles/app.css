@@ -636,7 +636,7 @@ html[lang="ar"] .ltr-field { text-align: left; }
 }
 .segmented button.active { background: var(--primary); color: var(--primary-contrast); }
 
-.remember-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--muted); }
+.remember-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text-secondary); }
 .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; cursor: pointer; }
 .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .switch span {
@@ -1045,7 +1045,7 @@ html[lang="en"] .list-arrow .icon { transform: none; }
 .trainee-workout-top > .badge { flex-shrink: 0; padding: 2px 7px; font-size: 0.62rem; }
 .trainee-workout-actions { display: flex; gap: 6px; margin-inline-start: 36px; }
 .trainee-rest-body { display: flex; align-items: center; gap: 9px; padding: 8px 0; color: var(--text-secondary); font-size: 0.78rem; }
-.rest-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-surface); color: var(--secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rest-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-surface); color: var(--champagne-text, #7A5C1E); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .rest-icon .icon { width: 14px; height: 14px; }
 
 .proof-summary {
@@ -1186,13 +1186,13 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: var(--secondary-soft);
-  border: 1px solid var(--secondary);
+  background: var(--bg-accent-soft);
+  border: 1px solid rgba(232, 92, 74, 0.25);
   border-radius: var(--radius-md);
   padding: 12px;
   margin-bottom: 16px;
 }
-.proof-guide .icon { color: var(--secondary); margin-top: 2px; }
+.proof-guide .icon { color: var(--primary); margin-top: 2px; }
 .proof-guide p { color: var(--text-secondary); font-size: 0.78rem; }
 
 .radio-stack { display: flex; flex-direction: column; gap: 9px; margin-bottom: 18px; }

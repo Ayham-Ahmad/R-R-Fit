@@ -1446,9 +1446,9 @@ function renderAdminSettings() {
 
 function renderThemePicker() {
   const themes = [
-    { id: "v1", name: state.lang === "ar" ? "برهان في الحركة" : "Proof in Motion", colors: ["#D94A4A", "#090A0C", "#F4F1EA"] },
-    { id: "v2", name: state.lang === "ar" ? "غرافيت في الحركة" : "Graphite Motion", colors: ["#D94A4A", "#171A1E", "#F6F5F2"] },
-    { id: "v3", name: state.lang === "ar" ? "كربون في الحركة" : "Carbon Motion", colors: ["#D94A4A", "#090A0C", "#F4F1EA"] }
+    { id: "v1", name: state.lang === "ar" ? "برهان في الحركة" : "Proof in Motion", colors: ["#E85C4A", "#090A0C", "#F6F3EE"] },
+    { id: "v2", name: state.lang === "ar" ? "غرافيت في الحركة" : "Graphite Motion", colors: ["#D94A4A", "#171A1E", "#F4F5F7"] },
+    { id: "v3", name: state.lang === "ar" ? "كربون في الحركة" : "Carbon Motion", colors: ["#C84B31", "#090A0C", "#F3EFE6"] }
   ];
   return `
     <div class="theme-picker">

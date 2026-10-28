@@ -3,7 +3,7 @@
    ========================================================================== */
 :root,
 [data-theme="v1"] {
-  /* Version 1: Proof in Motion */
+  /* Version 1: Proof in Motion (Warm Bone & Ember Coral) */
   --bg-ink: #090A0C;
   --bg-carbon: #101318;
   --bg-bone: #F6F3EE;
@@ -11,15 +11,15 @@
   --bg-main: #F6F3EE;
   --bg-surface: #FFFFFF;
   --bg-subtle: #F7F4EE;
-  --bg-accent-soft: #F5F3EE;
+  --bg-accent-soft: #FDF0ED;
   --text-primary: #101318;
   --text-secondary: #4F5560;
-  --text-muted: #6B7078;
+  --text-muted: #656A73;
   --primary: #E85C4A;
   --primary-hover: #D94A4A;
   --primary-contrast: #FFFFFF;
-  --secondary: #101318;
-  --secondary-soft: #F5F3EE;
+  --secondary: #1E242B;
+  --secondary-soft: #F2EFE9;
   --border-color: #E7E3DC;
   --border-strong: #D7D1C7;
   --border-subtle: rgba(16, 19, 24, 0.08);
@@ -41,11 +41,12 @@
   --header-border: rgba(255, 255, 255, 0.08);
   --header-text: #F6F3EE;
   --header-muted: rgba(246, 243, 238, 0.72);
-  --berry: #7A1C3E;
-  --berry-hover: #5E142F;
-  --berry-subtle: #F9EFF3;
-  --dusty-rose: #C88A9E;
+  --berry: #D94A4A;
+  --berry-hover: #B91C1C;
+  --berry-subtle: #FDF0ED;
+  --dusty-rose: #F3A69B;
   --champagne: #B9A06C;
+  --champagne-text: #7A5C1E;
   --champagne-bg: #FBF7EB;
   --accent-ember: #E85C4A;
   --accent-mint: #22C55E;
@@ -61,117 +62,73 @@
 }
 
 [data-theme="v2"] {
-  /* Version 2: Graphite Motion */
-  --bg-ink: #090A0C;
-  --bg-carbon: #101318;
-  --bg-bone: #F6F3EE;
-  --bg-paper: #FFFFFF;
-  --bg-main: #F6F5F2;
+  /* Version 2: Graphite Motion (Cool Alabaster & Slate Graphite) */
+  --bg-main: #F4F5F7;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #F8F7F4;
-  --bg-accent-soft: #F5F4F0;
-  --text-primary: #101318;
-  --text-secondary: #4F5560;
-  --text-muted: #6B7078;
-  --primary: #E85C4A;
-  --primary-hover: #D94A4A;
+  --bg-subtle: #ECEEF2;
+  --bg-accent-soft: #FDECE9;
+  --text-primary: #171A1E;
+  --text-secondary: #475467;
+  --text-muted: #667085;
+  --primary: #D94A4A;
+  --primary-hover: #B93838;
   --primary-contrast: #FFFFFF;
-  --secondary: #101318;
-  --secondary-soft: #F5F4F0;
-  --border-color: #E7E4DC;
-  --border-strong: #D7D2C9;
-  --border-subtle: rgba(16, 19, 24, 0.08);
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 14px;
-  --radius-pill: 999px;
+  --secondary: #171A1E;
+  --secondary-soft: #ECEEF2;
+  --border-color: #DDE1E8;
+  --border-strong: #C8CFD9;
+  --border-subtle: rgba(23, 26, 30, 0.08);
   --shadow-card: 0 1px 2px rgba(9, 10, 12, 0.02), 0 18px 38px -30px rgba(9, 10, 12, 0.38);
   --shadow-hover: 0 22px 48px -28px rgba(9, 10, 12, 0.48);
   --shadow-soft: 0 40px 80px -60px rgba(16, 19, 24, 0.22);
-  --font-heading-en: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body-en: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading-ar: 'Cairo', 'IBM Plex Sans Arabic', sans-serif;
-  --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
-  --banner-gradient: linear-gradient(130deg, rgba(232, 92, 74, 0.12) 0%, rgba(255, 255, 255, 0.95) 60%);
-  --card-border-width: 1px;
-  --header-bg: #090A0C;
-  --header-elevated: #101318;
+  --banner-gradient: linear-gradient(130deg, rgba(217, 74, 74, 0.12) 0%, rgba(255, 255, 255, 0.95) 60%);
+  --header-bg: #171A1E;
+  --header-elevated: #22262C;
   --header-border: rgba(255, 255, 255, 0.08);
   --header-text: #F6F5F2;
   --header-muted: rgba(246, 245, 242, 0.72);
-  --berry: #7A1C3E;
-  --berry-hover: #5E142F;
-  --berry-subtle: #F9EFF3;
-  --dusty-rose: #C88A9E;
-  --champagne: #B9A06C;
-  --champagne-bg: #FBF7EB;
-  --accent-ember: #E85C4A;
-  --accent-mint: #22C55E;
-  --accent-gold: #B9A06C;
-  --accent-success: #22C55E;
-  --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F7F4EE 100%);
-  --winner-border: #E7E4DC;
-  --winner-ring: linear-gradient(135deg, #B9A06C 0%, #E85C4A 100%);
-  --winner-glow: 0 18px 38px -28px rgba(185, 160, 108, 0.38);
-  --winner-badge-bg: linear-gradient(135deg, #B9A06C 0%, #8F6D0F 100%);
-  --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F7F4EE 100%);
+  --berry: #D94A4A;
+  --berry-hover: #B93838;
+  --berry-subtle: #FDECE9;
+  --dusty-rose: #F3A69B;
+  --champagne-text: #7A5C1E;
+  --accent-ember: #D94A4A;
+  --winner-border: #DDE1E8;
 }
 
 [data-theme="v3"] {
-  /* Version 3: Carbon Motion */
-  --bg-ink: #090A0C;
-  --bg-carbon: #101318;
-  --bg-bone: #F6F3EE;
-  --bg-paper: #FFFFFF;
-  --bg-main: #F4F1EA;
-  --bg-surface: #FFFFFF;
-  --bg-subtle: #F6F3EE;
-  --bg-accent-soft: #F5F2EC;
-  --text-primary: #101318;
-  --text-secondary: #4F5560;
-  --text-muted: #6B7078;
-  --primary: #E85C4A;
-  --primary-hover: #D94A4A;
+  /* Version 3: Carbon Motion (Warm Sand & Deep Berry-Ember) */
+  --bg-main: #F3EFE6;
+  --bg-surface: #FCFBF9;
+  --bg-subtle: #EAE4D7;
+  --bg-accent-soft: #F9E8E6;
+  --text-primary: #090A0C;
+  --text-secondary: #4A4843;
+  --text-muted: #6E6A63;
+  --primary: #C84B31;
+  --primary-hover: #A83820;
   --primary-contrast: #FFFFFF;
-  --secondary: #101318;
-  --secondary-soft: #F5F2EC;
-  --border-color: #E5DFD3;
-  --border-strong: #D6CEC0;
-  --border-subtle: rgba(16, 19, 24, 0.08);
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 14px;
-  --radius-pill: 999px;
+  --secondary: #090A0C;
+  --secondary-soft: #EAE4D7;
+  --border-color: #E2DBD0;
+  --border-strong: #CFC6B8;
+  --border-subtle: rgba(9, 10, 12, 0.08);
   --shadow-card: 0 1px 2px rgba(9, 10, 12, 0.02), 0 22px 44px -30px rgba(9, 10, 12, 0.42);
   --shadow-hover: 0 26px 54px -28px rgba(9, 10, 12, 0.52);
   --shadow-soft: 0 40px 80px -60px rgba(16, 19, 24, 0.28);
-  --font-heading-en: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body-en: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading-ar: 'Cairo', 'IBM Plex Sans Arabic', sans-serif;
-  --font-body-ar: 'IBM Plex Sans Arabic', sans-serif;
-  --banner-gradient: linear-gradient(130deg, rgba(232, 92, 74, 0.16) 0%, rgba(255, 255, 255, 0.88) 60%);
-  --card-border-width: 1px;
+  --banner-gradient: linear-gradient(130deg, rgba(200, 75, 49, 0.16) 0%, rgba(255, 255, 255, 0.88) 60%);
   --header-bg: #090A0C;
-  --header-elevated: #101318;
+  --header-elevated: #141619;
   --header-border: rgba(255, 255, 255, 0.08);
   --header-text: #F4F1EA;
   --header-muted: rgba(244, 241, 234, 0.72);
-  --berry: #7A1C3E;
-  --berry-hover: #5E142F;
-  --berry-subtle: #F9EFF3;
-  --dusty-rose: #C88A9E;
-  --champagne: #B9A06C;
-  --champagne-bg: #FBF7EB;
-  --accent-ember: #E85C4A;
-  --accent-mint: #22C55E;
-  --accent-gold: #B9A06C;
-  --accent-success: #22C55E;
-  --winner-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F7F4EE 100%);
-  --winner-border: #E5DFD3;
-  --winner-ring: linear-gradient(135deg, #B9A06C 0%, #E85C4A 100%);
-  --winner-glow: 0 18px 40px -28px rgba(185, 160, 108, 0.4);
-  --winner-badge-bg: linear-gradient(135deg, #B9A06C 0%, #8F6D0F 100%);
-  --reward-banner-bg: linear-gradient(135deg, #FBF7EB 0%, #F7F4EE 100%);
+  --berry: #A83820;
+  --berry-hover: #8A2C18;
+  --berry-subtle: #F9E8E6;
+  --dusty-rose: #E9A294;
+  --champagne-text: #6B4E17;
+  --accent-ember: #C84B31;
+  --winner-border: #E2DBD0;
 }
 
 :root {
