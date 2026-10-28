@@ -485,7 +485,7 @@ html[lang="ar"] .app-brand .brand-title {
   padding: 32px 34px;
   border-radius: 18px;
   border: 1px solid rgba(16, 19, 24, 0.08);
-  background: radial-gradient(circle at top right, rgba(232, 92, 74, 0.18), transparent 55%), linear-gradient(120deg, #FFFFFF 0%, #F6F3EE 100%);
+  background: radial-gradient(circle at top right, rgba(232, 92, 74, 0.16), transparent 55%), linear-gradient(120deg, #FFFFFF 0%, #F6F3EE 100%);
   color: #101318;
   box-shadow: 0 60px 120px -90px rgba(16, 19, 24, 0.9);
 }
@@ -501,20 +501,30 @@ html[lang="ar"] .app-brand .brand-title {
 }
 
 .welcome-card h2 {
-  margin-bottom: 7px;
-  color: #FFFFFF;
-  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
-  line-height: 1.15;
+  margin: 0 0 8px;
+  color: #101318;
+  font-family: var(--font-heading-en);
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.05em;
+}
+
+html[lang="ar"] .welcome-card h2 {
+  font-family: var(--font-heading-ar);
+  letter-spacing: 0;
 }
 
 .welcome-card p {
+  margin: 0;
   max-width: 640px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.9rem;
+  color: rgba(16, 19, 24, 0.78);
+  font-size: 0.98rem;
+  line-height: 1.9;
 }
 
 .welcome-card .eyebrow {
-  color: var(--dusty-rose);
+  color: #E85C4A;
 }
 
 .welcome-actions {
