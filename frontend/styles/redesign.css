@@ -2938,9 +2938,10 @@ html[dir="ltr"] .landing-text-link .icon {
 .landing-visual-main {
   position: relative;
   z-index: 2;
+  padding: 24px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(9, 10, 12, 0.9) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(9, 10, 12, 0.92) 100%);
   box-shadow: var(--shadow-soft);
   overflow: hidden;
   backdrop-filter: blur(12px);
@@ -2978,9 +2979,9 @@ html[dir="ltr"] .landing-text-link .icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(232, 92, 74, 0.35);
   border-radius: 12px;
-  background: var(--bg-accent-soft);
+  background: rgba(232, 92, 74, 0.16);
   color: var(--primary);
 }
 
@@ -2996,9 +2997,16 @@ html[dir="ltr"] .landing-text-link .icon {
   gap: 2px;
 }
 
+.landing-visual-title strong {
+  color: #F6F3EE;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 .landing-visual-title span {
-  color: rgba(246, 243, 238, 0.7);
-  font-size: 0.58rem;
+  color: rgba(246, 243, 238, 0.68);
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3013,12 +3021,12 @@ html[dir="ltr"] .landing-text-link .icon {
 
 .landing-week-badge {
   flex-shrink: 0;
-  padding: 6px 9px;
-  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: var(--radius-pill);
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-size: 0.56rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(246, 243, 238, 0.82);
+  font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3030,7 +3038,7 @@ html[dir="ltr"] .landing-text-link .icon {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 0 28px;
+  padding: 18px 0 0;
 }
 
 .landing-score-row strong {
@@ -3051,7 +3059,7 @@ html[lang="ar"] .landing-score-row strong {
 
 .landing-score-bar {
   position: relative;
-  margin: 16px 28px 0;
+  margin: 14px 0 0;
   height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
@@ -3074,14 +3082,14 @@ html[lang="ar"] .landing-score-row strong {
 
 .landing-visual-stats > div {
   padding: 12px 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  background: var(--bg-subtle);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .landing-visual-stats strong {
   display: block;
-  color: var(--text-primary);
+  color: #F6F3EE;
   font-size: 0.94rem;
   font-weight: 800;
   line-height: 1.2;
@@ -3090,8 +3098,8 @@ html[lang="ar"] .landing-score-row strong {
 .landing-visual-stats span {
   display: block;
   margin-top: 2px;
-  color: var(--text-muted);
-  font-size: 0.58rem;
+  color: rgba(246, 243, 238, 0.68);
+  font-size: 0.62rem;
   font-weight: 700;
 }
 
@@ -3102,8 +3110,9 @@ html[lang="ar"] .landing-score-row strong {
   margin-top: 12px;
   padding: 13px;
   border-radius: 14px;
-  background: var(--text-primary);
-  color: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #F6F3EE;
 }
 
 .landing-next-icon {
@@ -3337,16 +3346,21 @@ html[lang="ar"] .landing-section h2 {
   position: absolute;
   top: 28px;
   inset-inline-end: 28px;
-  color: var(--text-muted);
+  color: rgba(246, 243, 238, 0.48);
   font-family: var(--font-heading-en);
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 
+html[lang="ar"] .landing-feature-index {
+  font-family: var(--font-heading-ar);
+  letter-spacing: 0;
+}
+
 .landing-feature h3 {
   margin: 36px 0 0;
-  color: var(--text-primary);
+  color: #F6F3EE;
   font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -3358,8 +3372,8 @@ html[lang="ar"] .landing-feature h3 {
 
 .landing-feature p {
   margin: 10px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
+  color: rgba(246, 243, 238, 0.74);
+  font-size: 0.84rem;
   line-height: 1.75;
 }
 
