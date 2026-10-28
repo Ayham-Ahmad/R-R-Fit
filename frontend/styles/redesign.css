@@ -2433,6 +2433,10 @@ html[lang="ar"] .auth-brand-copy h2 {
   color: #F6F3EE;
 }
 
+.landing-shell * {
+  color: inherit;
+}
+
 .landing-header {
   position: sticky;
   top: 0;
@@ -2988,7 +2992,7 @@ html[dir="ltr"] .landing-text-link .icon {
 }
 
 .landing-visual-title span {
-  color: var(--text-muted);
+  color: rgba(246, 243, 238, 0.7);
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -3647,9 +3651,9 @@ html[lang="ar"] .landing-feature h3 {
 .landing-experience-copy > p {
   max-width: 520px;
   margin: 18px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.8;
+  color: rgba(246, 243, 238, 0.78);
+  font-size: 0.94rem;
+  line-height: 1.9;
 }
 
 .landing-experience-points {
@@ -3677,16 +3681,16 @@ html[lang="ar"] .landing-feature h3 {
 
 .landing-experience-points strong {
   display: block;
-  color: var(--text-primary);
-  font-size: 0.84rem;
+  color: #F6F3EE;
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
 .landing-experience-points p {
   margin: 5px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.76rem;
-  line-height: 1.65;
+  color: rgba(246, 243, 238, 0.76);
+  font-size: 0.88rem;
+  line-height: 1.8;
 }
 
 .landing-final {
