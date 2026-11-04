@@ -329,7 +329,7 @@ export async function createExercise({
   repsAr,
   restEn,
   restAr,
-  presetKey,
+  presetKey = null,
   mediaFile = null
 }) {
   if (!nameEn?.trim() || !nameAr?.trim()) throw new Error("EXERCISE_NAMES_REQUIRED");
@@ -367,7 +367,7 @@ export async function createExercise({
           reps_ar: repsAr || "١٢ تكرار",
           rest_en: restEn || "60 sec",
           rest_ar: restAr || "٦٠ ثانية",
-          preset_key: presetKey,
+          preset_key: presetKey || null,
           media_path: mediaPath
         })
         .select("*")
@@ -392,6 +392,44 @@ export async function deleteExercise(exerciseId) {
       .select("id")
       .single(),
     "Unable to archive the exercise"
+  );
+}
+
+export async function updateExercise(exerciseId, updates = {}) {
+  const client = requireSupabase();
+  const allowed = {};
+  const map = {
+    categoryId: "category_id",
+    nameEn: "name_en",
+    nameAr: "name_ar",
+    descEn: "desc_en",
+    descAr: "desc_ar",
+    defaultSets: "default_sets",
+    repsEn: "reps_en",
+    repsAr: "reps_ar",
+    restEn: "rest_en",
+    restAr: "rest_ar",
+    presetKey: "preset_key",
+    isActive: "is_active",
+    mediaPath: "media_path"
+  };
+  Object.keys(updates).forEach((key) => {
+    if (map[key] !== undefined && updates[key] !== undefined) {
+      allowed[map[key]] = updates[key];
+    }
+  });
+  if (!Object.keys(allowed).length) return null;
+  return unwrap(
+    await client.from("exercises").update(allowed).eq("id", exerciseId).select("*").single(),
+    "Unable to update the exercise"
+  );
+}
+
+export async function restoreExercise(exerciseId) {
+  const client = requireSupabase();
+  return unwrap(
+    await client.from("exercises").update({ is_active: true }).eq("id", exerciseId).select("*").single(),
+    "Unable to restore the exercise"
   );
 }
 

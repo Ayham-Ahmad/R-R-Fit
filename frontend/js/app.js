@@ -5,6 +5,7 @@ import { createDrawingAvatar, createStickmanGif } from "./graphics.js";
 import {
   DAY_KEYS,
   SUPABASE_CONFIGURED,
+  getPlatformSettings,
   onAuthStateChange
 } from "../../api/client.js";
 import {
@@ -30,9 +31,11 @@ import {
   deleteExercise,
   loadCoachWorkspace,
   removeWorkout,
+  restoreExercise,
   savePlatformSettings,
   setRestDay,
   toggleTraineeAccess,
+  updateExercise,
   updateTraineeRecurrence,
   updateWorkout
 } from "../../api/coach.api.js";
@@ -55,6 +58,7 @@ import { compressProofImage } from "./compression.js";
 const env = import.meta.env || {};
 const LANG_KEY = "rr_fit_language";
 const THEME_KEY = "rr_fit_theme";
+const VIEW_KEY = "rr_fit_view";
 const DEFAULT_LANG = (env.VITE_DEFAULT_LANG || env.VITE_DEFAULT_LANGUAGE) === "en" ? "en" : "ar";
 const DEFAULT_THEME = ["v1", "v2", "v3"].includes(env.VITE_DEFAULT_THEME) ? env.VITE_DEFAULT_THEME : "v1";
 const THEME_KEYS = ["v1", "v2", "v3"];
@@ -142,7 +146,8 @@ const state = {
     userSearch: "",
     userRole: "all",
     builderSearch: "",
-    builderCategory: "all"
+    builderCategory: "all",
+    showArchivedExercises: false
   },
   proofFile: null,
   proofWorkoutId: null,
@@ -151,7 +156,8 @@ const state = {
   reviewProof: null,
   loading: true,
   error: "",
-  lastCreated: null
+  lastCreated: null,
+  platformSettings: null
 };
 
 function t(key) {
@@ -207,7 +213,7 @@ function formatNumber(value) {
 }
 
 function getSettings() {
-  return state.admin?.settings || state.coach?.settings || state.trainee?.settings || DEFAULT_SETTINGS;
+  return state.admin?.settings || state.coach?.settings || state.trainee?.settings || state.platformSettings || DEFAULT_SETTINGS;
 }
 
 function brandName() {
@@ -391,7 +397,7 @@ function recurrenceLabel(trainee) {
   if (trainee.recurrence === "daily") return t("recDaily");
   if (trainee.recurrence === "selected_days") {
     const days = (trainee.recurrenceDays || []).map(dayShort).join(state.lang === "ar" ? "، " : ", ");
-    return days ? `${t("recSelectedDays")} — ${days}` : t("recSelectedDays");
+    return days ? `${t("recSelectedDays")} - ${days}` : t("recSelectedDays");
   }
   return t("recWeekly");
 }
@@ -482,6 +488,20 @@ function setTheme(theme) {
   applyDocumentPreferences();
 }
 
+function saveView(view) {
+  try {
+    if (view) localStorage.setItem(VIEW_KEY, view);
+  } catch {}
+}
+
+function loadSavedView() {
+  try {
+    return localStorage.getItem(VIEW_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 function captureFocus() {
   const active = document.activeElement;
   if (!active || !active.id) return null;
@@ -527,7 +547,7 @@ function renderApp(focus = null) {
   const activeWeek = currentWeek();
   const todayLabel = new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const scrollY = window.scrollY;
-  document.title = `${brandName()} — ${meta.title}`;
+  document.title = `${brandName()} - ${meta.title}`;
   document.getElementById("app").innerHTML = `
     <div class="app-shell" data-role="${esc(state.profile.role)}">
       <header class="app-topbar">
@@ -737,6 +757,16 @@ function boot() {
     renderSetup();
     return;
   }
+  try {
+    getPlatformSettings()
+      .then((settings) => {
+        state.platformSettings = settings;
+        if (!state.loading && !state.profile && (state.authMode === "landing" || state.authMode === "login")) {
+          renderAuth();
+        }
+      })
+      .catch(() => {});
+  } catch {}
   const recovery = new URLSearchParams(window.location.search).get("mode") === "reset-password"
     || window.location.hash.includes("type=recovery")
     || window.location.hash.includes("type=invite");
@@ -793,7 +823,14 @@ async function bootSession() {
 
 async function enterWorkspace(profile) {
   state.profile = profile;
-  state.view = defaultView(profile.role);
+  const saved = loadSavedView();
+  const nav = profile.role === "admin"
+    ? ["dashboard", "users", "settings"]
+    : profile.role === "coach"
+      ? ["dashboard", "trainees", "exercises", "leaderboard", "settings"]
+      : ["schedule", "progress", "leaderboard", "settings"];
+  state.view = saved && nav.includes(saved) ? saved : defaultView(profile.role);
+  saveView(state.view);
   state.selectedTraineeId = null;
   state.selectedWeekId = null;
   state.authError = "";
@@ -884,7 +921,7 @@ function renderLanding() {
     ["Sat", "rest"],
     ["Sun", "pending"]
   ];
-  document.title = `${brand} — ${t("landingMetaTitle")}`;
+  document.title = `${brand} - ${t("landingMetaTitle")}`;
   document.getElementById("app").innerHTML = `
     <div class="landing-shell" id="top">
       <header class="landing-header">
@@ -1096,6 +1133,10 @@ function renderLanding() {
             <div><strong>${esc(brand)}</strong><span>${t("landingFooterTagline")}</span></div>
           </div>
           <p class="landing-footer-note">${t("landingFooterNote")}</p>
+          <div class="landing-footer-contact">
+            <a href="mailto:ayhamshahada03@gmail.com">ayhamshahada03@gmail.com</a>
+            <a href="tel:+966501679896">+966 501679896</a>
+          </div>
           <div class="landing-footer-actions">
             <button class="landing-lang" type="button" data-action="toggle-language" aria-label="${languageLabel}">
               ${icon("globe")}<span>${languageLabel}</span>
@@ -1119,7 +1160,7 @@ function renderAuth() {
     return;
   }
   const mode = state.authMode;
-  const brand = state.lang === "ar" ? DEFAULT_SETTINGS.websiteNameAr : DEFAULT_SETTINGS.websiteNameEn;
+  const brand = brandName();
   const tagline = t("authTagline");
   const rememberedEmail = readCookie(REMEMBER_EMAIL_COOKIE);
   const recoveryWithoutSession = mode === "reset-password" && !state.session;
@@ -1732,8 +1773,13 @@ function renderBuilderWorkout(item, trainee) {
 function filteredExercises() {
   const exercises = state.coach?.exercises || [];
   const search = state.filters.exerciseSearch.trim().toLowerCase();
+  const showArchived = state.filters.showArchivedExercises;
   return exercises.filter((exercise) => {
-    if (!exercise.isActive) return false;
+    if (showArchived) {
+      if (exercise.isActive) return false;
+    } else {
+      if (!exercise.isActive) return false;
+    }
     const matchesCategory = state.filters.exerciseCategory === "all" || exercise.categoryId === state.filters.exerciseCategory;
     const haystack = `${exercise.nameEn} ${exercise.nameAr} ${exercise.descEn} ${exercise.descAr}`.toLowerCase();
     return matchesCategory && (!search || haystack.includes(search));
@@ -1756,6 +1802,7 @@ function renderCoachExercises() {
             <option value="all" ${state.filters.exerciseCategory === "all" ? "selected" : ""}>${t("allCategories")}</option>
             ${workspace.categories.map((category) => `<option value="${category.id}" ${state.filters.exerciseCategory === category.id ? "selected" : ""}>${esc(state.lang === "ar" ? category.ar : category.en)}</option>`).join("")}
           </select>
+          <button class="btn ${state.filters.showArchivedExercises ? "btn-primary" : "btn-secondary"}" type="button" data-action="toggle-archived-exercises">${state.filters.showArchivedExercises ? (t("showActiveExercises") || "Show Active") : (t("showArchivedExercises") || "Show Archived")}</button>
           <button class="btn btn-primary" type="button" data-action="open-create-exercise">${icon("plus")}${t("createExerciseBtn")}</button>
         </div>
         <div class="toolbar-meta">${t("showingExercises")} <strong>${formatNumber(exercises.length)}</strong> ${t("ofExercises")} ${formatNumber(workspace.exercises.length)}</div>
@@ -1772,7 +1819,12 @@ function renderCoachExercises() {
               <div class="exercise-body">
                 <div class="exercise-title-row">
                   <h3>${bi(exercise, "name")}</h3>
-                  <button class="icon-btn danger" type="button" data-action="archive-exercise" data-exercise-id="${exercise.id}" title="${t("archiveBtn")}" aria-label="${t("archiveBtn")}">${icon("lock")}</button>
+                  <div class="exercise-card-actions">
+                    <button class="icon-btn" type="button" data-action="edit-exercise" data-exercise-id="${exercise.id}" title="${t("editBtn")}" aria-label="${t("editBtn")}">${icon("settings")}</button>
+                    ${exercise.isActive
+                      ? `<button class="icon-btn danger" type="button" data-action="archive-exercise" data-exercise-id="${exercise.id}" title="${t("archiveBtn")}" aria-label="${t("archiveBtn")}">${icon("lock")}</button>`
+                      : `<button class="icon-btn" type="button" data-action="restore-exercise" data-exercise-id="${exercise.id}" title="${t("restoreBtn") || "Restore"}" aria-label="${t("restoreBtn") || "Restore"}">${icon("unlock")}</button>`}
+                  </div>
                 </div>
                 <p>${bi(exercise, "desc")}</p>
                 <div class="exercise-meta">
@@ -1802,7 +1854,7 @@ function renderLeaderboardManagement() {
           <div class="week-selector">
             <label class="form-label" for="lbWeekSelect">${t("weekLabel")}</label>
             <select class="form-control select-control" id="lbWeekSelect" data-action="select-week">
-              ${leaderboard.weeks.map((week) => `<option value="${week.id}" ${leaderboard.week?.id === week.id ? "selected" : ""}>${esc(state.lang === "ar" ? week.labelAr : week.labelEn)}${week.isLive ? ` — ${t("liveLabel")}` : ""}</option>`).join("")}
+              ${leaderboard.weeks.map((week) => `<option value="${week.id}" ${leaderboard.week?.id === week.id ? "selected" : ""}>${esc(state.lang === "ar" ? week.labelAr : week.labelEn)}${week.isLive ? ` - ${t("liveLabel")}` : ""}</option>`).join("")}
             </select>
           </div>
           <button class="btn btn-secondary" type="button" data-action="open-new-week">${icon("calendar")}${t("startNewWeekBtn")}</button>
@@ -1965,9 +2017,18 @@ function renderTraineeSchedule() {
     `;
   }
   if (!workspace.currentWeek) {
+    const coachEmail = workspace.coach?.email || "";
+    const whatsappPhone = workspace.coach?.whatsappPhone || "";
+    const actions = [];
+    if (whatsappPhone) {
+      actions.push(`<a class="btn btn-primary" href="https://wa.me/${esc(String(whatsappPhone).replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>`);
+    }
+    if (coachEmail) {
+      actions.push(`<a class="btn btn-secondary" href="mailto:${esc(coachEmail)}">${t("contactCoachBtn")}</a>`);
+    }
     return `
       <div class="view-stack">
-        <section class="card">${emptyState(t("noLiveWeekTitle"), t("noLiveWeekBody"), `<a class="btn btn-primary" href="mailto:${esc(workspace.coach.email || "")}">${t("contactCoachBtn")}</a>`)}</section>
+        <section class="card">${emptyState(t("noLiveWeekTitle"), t("noLiveWeekBody"), actions.length ? actions.join("") : "")}</section>
       </div>
     `;
   }
@@ -1995,9 +2056,9 @@ function renderTraineeSchedule() {
           <section class="card coach-mini-card">
             <span class="eyebrow">${t("yourCoachLabel")}</span>
             <img class="coach-portrait" src="${createDrawingAvatar("coach")}" alt="" />
-            <h3>${esc(coachName())}</h3>
+            <h3>${esc((state.lang === "ar" ? (workspace.coach?.nameAr || workspace.coach?.name_ar) : (workspace.coach?.nameEn || workspace.coach?.name_en)) || coachName())}</h3>
             <p>${t("coachMiniBody")}</p>
-            ${workspace.coach.whatsappPhone ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${esc(workspace.coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
+            ${workspace.coach?.whatsappPhone ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${esc(workspace.coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
           </section>
           <section class="card week-summary-card">
             <h3>${t("weekSummaryTitle")}</h3>
@@ -2015,6 +2076,7 @@ function renderTraineeSchedule() {
 function renderTraineeStatusCard() {
   const workspace = state.trainee;
   const coach = workspace?.coach;
+  const coachEmail = coach?.email || "";
   return `
     <section class="lock-screen-card card">
       <div class="lock-illustration">${icon("lock")}</div>
@@ -2023,11 +2085,11 @@ function renderTraineeStatusCard() {
       <p>${t("planLockedBody")}</p>
       <div class="lock-contact">
         <span class="avatar avatar-lg"><img src="${createDrawingAvatar("coach")}" alt="" /></span>
-        <div><strong>${esc(coachName())}</strong><span>${esc(coach?.email || "")}</span></div>
+        <div><strong>${esc((state.lang === "ar" ? (coach?.nameAr || coach?.name_ar) : (coach?.nameEn || coach?.name_en)) || coachName())}</strong><span>${esc(coachEmail)}</span></div>
       </div>
       <div class="modal-actions">
         ${coach?.whatsappPhone ? `<a class="btn btn-primary" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
-        <a class="btn btn-secondary" href="mailto:${esc(coach?.email || "")}">${t("contactCoachBtn")}</a>
+        ${coachEmail ? `<a class="btn btn-secondary" href="mailto:${esc(coachEmail)}">${t("contactCoachBtn")}</a>` : ""}
       </div>
     </section>
   `;
@@ -2079,8 +2141,8 @@ function renderTraineeWorkout(item) {
       </div>
       ${completed && (item.proofWeights || item.proofSummaryEn) ? `
         <div class="proof-summary">
-          <span>${t("loggedWeightLabel")}: <strong>${esc(item.proofWeights || "—")}</strong></span>
-          <span>${t("rpeLabel")}: <strong>${item.proofRpe || "—"}</strong></span>
+          <span>${t("loggedWeightLabel")}: <strong>${esc(item.proofWeights || "-")}</strong></span>
+          <span>${t("rpeLabel")}: <strong>${item.proofRpe || "-"}</strong></span>
           ${item.verificationNote ? `<span class="proof-note">${t("coachNoteLabel")}: ${esc(item.verificationNote)}</span>` : ""}
         </div>
       ` : ""}
@@ -2123,7 +2185,7 @@ function renderTraineeProgress() {
                 <div class="day-bar-item">
                   <div class="day-bar-track"><div class="day-bar-fill ${day?.isRestDay ? "rest" : ""}" style="height:${Math.max(5, value)}%"></div></div>
                   <span>${dayShort(dayKey)}</span>
-                  <strong>${day?.isRestDay ? "—" : `${completed}/${total}`}</strong>
+                  <strong>${day?.isRestDay ? "-" : `${completed}/${total}`}</strong>
                 </div>
               `;
             }).join("")}
@@ -2150,7 +2212,7 @@ function renderTraineeProgress() {
               <span class="proof-day">${dayShort(item.dayKey)}</span>
               <div class="activity-copy">
                 <strong>${getExerciseName(item.exerciseId)}</strong>
-                <span>${item.status === "skipped" ? t("skippedLabel") : `${esc(item.proofWeights || "—")} · ${t("rpeLabel")} ${item.proofRpe || "—"} · ${formatDateTime(item.completedAt)}`}</span>
+                <span>${item.status === "skipped" ? t("skippedLabel") : `${esc(item.proofWeights || "-")} · ${t("rpeLabel")} ${item.proofRpe || "-"} · ${formatDateTime(item.completedAt)}`}</span>
               </div>
               ${item.status === "skipped" ? `<span class="badge badge-neutral">${t("skippedLabel")}</span>` : verificationBadge(item.verificationStatus)}
             </div>
@@ -2235,7 +2297,7 @@ function renderTraineeSettings() {
   return `
     <div class="view-stack settings-stack">
       <section class="card">
-        <div class="card-header"><div><h2>${t("traineeProfileTitle")}</h2><p>${t("traineeProfileSub")}</p></div></div>
+        <div class="card-header"><div><h2>${t("traineeProfileTitle")}</h2><p>${t("traineeProfileSub")}</p></div><span class="page-date">${new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></div>
         <form data-form="trainee-profile" class="form-grid">
           <div class="form-group">
             <label class="form-label" for="traineeNameEn">${t("nameEnLabel")}</label>
@@ -2269,10 +2331,10 @@ function renderTraineeSettings() {
         <div class="card-header"><div><h2>${t("yourCoachLabel")}</h2><p>${t("coachContactTraineeSub")}</p></div></div>
         <div class="contact-row">
           <span class="avatar avatar-lg"><img src="${createDrawingAvatar("coach")}" alt="" /></span>
-          <div class="activity-copy"><strong>${esc(coachName())}</strong><span>${esc(coach.email || "")}</span></div>
+          <div class="activity-copy"><strong>${esc((state.lang === "ar" ? (coach?.nameAr || coach?.name_ar) : (coach?.nameEn || coach?.name_en)) || coachName())}</strong><span>${esc(coach?.email || "")}</span></div>
           <div class="contact-actions">
-            ${coach.whatsappPhone ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("whatsappBtn")}</a>` : ""}
-            ${coach.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${esc(coach.email)}">${t("emailBtn")}</a>` : ""}
+            ${coach?.whatsappPhone ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("whatsappBtn")}</a>` : ""}
+            ${coach?.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${esc(coach.email)}">${t("emailBtn")}</a>` : ""}
           </div>
         </div>
       </section>
@@ -2295,10 +2357,6 @@ function renderTraineeSettings() {
         <div class="setting-row">
           <div><strong>${t("changePasswordTitle")}</strong><p>${t("changePasswordSub")}</p></div>
           <button class="btn btn-secondary" type="button" data-action="open-change-password">${t("changePasswordBtn")}</button>
-        </div>
-        <div class="setting-row">
-          <div><strong>${t("resetEmailTitle")}</strong><p>${t("resetEmailSub")}</p></div>
-          <button class="btn btn-secondary" type="button" data-action="send-reset-email" data-email="${esc(trainee.email)}">${t("sendResetEmailBtn")}</button>
         </div>
       </section>
     </div>
@@ -2505,7 +2563,7 @@ function openAddWorkoutModal(traineeId, dayKey) {
             <label class="form-label" for="addExerciseSelect">${t("exerciseLabel")}</label>
             <select class="form-control" id="addExerciseSelect" name="exerciseId" required>
               <option value="">${t("chooseExercise")}</option>
-              ${exercises.map((exercise) => `<option value="${exercise.id}">${esc(state.lang === "ar" ? exercise.nameAr : exercise.nameEn)} — ${esc(categoryName(exercise.categoryId))}</option>`).join("")}
+              ${exercises.map((exercise) => `<option value="${exercise.id}">${esc(state.lang === "ar" ? exercise.nameAr : exercise.nameEn)} - ${esc(categoryName(exercise.categoryId))}</option>`).join("")}
             </select>
           </div>
           <div class="info-panel">${icon("dumbbell")}<p>${t("addWorkoutHint")}</p></div>
@@ -2606,12 +2664,6 @@ function openCreateExerciseModal() {
               ${categories.map((category) => `<option value="${category.id}">${esc(state.lang === "ar" ? category.ar : category.en)}</option>`).join("")}
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="newExercisePreset">${t("animationLabel")}</label>
-            <select class="form-control" id="newExercisePreset" name="presetKey">
-              ${PRESET_KEYS.map((key) => `<option value="${key}">${t(`preset${key.charAt(0).toUpperCase()}${key.slice(1)}`)}</option>`).join("")}
-            </select>
-          </div>
           ${inputField("newExerciseNameEn", t("nameEnLabel"), "", { required: true })}
           ${inputField("newExerciseNameAr", t("nameArLabel"), "", { required: true })}
           <div class="form-group">
@@ -2631,9 +2683,14 @@ function openCreateExerciseModal() {
           ${inputField("newExerciseRestEn", t("restEnLabel"), "60 sec")}
           ${inputField("newExerciseRestAr", t("restArLabel"), "٦٠ ثانية")}
           <div class="form-group span-full">
-            <label class="form-label" for="exerciseMediaFile">${t("mediaLabel")}</label>
-            <input class="form-control file-input" id="exerciseMediaFile" type="file" accept="image/webp,image/gif,image/png,image/jpeg" />
-            <p class="form-hint">${t("mediaHint")}</p>
+            <label class="form-label" for="exerciseMediaFile">${t("mediaLabel") || "Animation / GIF"}</label>
+            <input class="form-control file-input" id="exerciseMediaFile" type="file" accept="image/gif,image/webp,image/png,image/jpeg" />
+            <p class="form-hint">${t("mediaHint") || "Upload a GIF or animation image"}</p>
+          </div>
+          <div class="form-group span-full">
+            <label class="form-label" for="animationCode">${t("animationCodeLabel") || "Animation Code"}</label>
+            <textarea class="form-control" id="animationCode" name="animationCode" rows="3" placeholder="<svg>...</svg> or JSON/Lottie code"></textarea>
+            <p class="form-hint">${t("animationCodeHint") || "Or paste animation code (SVG/Lottie/JSON)"}</p>
           </div>
         </div>
         <div class="media-preview" id="exerciseMediaPreview"></div>
@@ -2757,17 +2814,17 @@ async function openReviewProofModal(traineeId, workoutId) {
             <div class="review-details">
               <div class="detail-grid">
                 <div class="detail-item"><span>${t("exerciseLabel")}</span><strong>${getExerciseName(log.exerciseId)}</strong></div>
-                <div class="detail-item"><span>${t("weightsLabel")}</span><strong>${esc(log.weights || "—")}</strong></div>
-                <div class="detail-item"><span>${t("rpeLabel")}</span><strong>${log.rpe || "—"}</strong></div>
+                <div class="detail-item"><span>${t("weightsLabel")}</span><strong>${esc(log.weights || "-")}</strong></div>
+                <div class="detail-item"><span>${t("rpeLabel")}</span><strong>${log.rpe || "-"}</strong></div>
                 <div class="detail-item"><span>${t("completedAtLabel")}</span><strong>${formatDateTime(log.completedAt)}</strong></div>
               </div>
               <div class="proof-copy-block">
                 <span>${t("summaryEnLabel")}</span>
-                <p class="ltr-field">${esc(log.summaryEn || "—")}</p>
+                <p class="ltr-field">${esc(log.summaryEn || "-")}</p>
               </div>
               <div class="proof-copy-block">
                 <span>${t("summaryArLabel")}</span>
-                <p>${esc(log.summaryAr || "—")}</p>
+                <p>${esc(log.summaryAr || "-")}</p>
               </div>
               <div class="form-group">
                 <label class="form-label" for="reviewNote">${t("reviewNoteLabel")}</label>
@@ -3028,18 +3085,35 @@ async function handleFormSubmit(form) {
         nameEn: value("newExerciseNameEn"),
         nameAr: value("newExerciseNameAr"),
         descEn: value("newExerciseDescEn"),
-        descAr: value("newExerciseDescAr"),
+        descAr: value("newExerciseDescAr") + (value("animationCode") ? "\n\n[ANIMATION_CODE]\n" + value("animationCode") : ""),
         defaultSets: Number(value("defaultSets")) || 3,
         repsEn: value("newExerciseRepsEn"),
         repsAr: value("newExerciseRepsAr"),
         restEn: value("newExerciseRestEn"),
         restAr: value("newExerciseRestAr"),
-        presetKey: value("presetKey") || "squat",
+        presetKey: null,
         mediaFile: state.modalFile
       });
       closeModal();
       await refreshWorkspaceData();
       showToast(t("exerciseCreatedToast"));
+      return;
+    }
+    if (type === "edit-exercise") {
+      await updateExercise(value("exerciseId"), {
+        nameEn: value("exerciseNameEn"),
+        nameAr: value("exerciseNameAr"),
+        descEn: value("exerciseDescEn"),
+        descAr: value("exerciseDescAr"),
+        defaultSets: Number(value("defaultSets")) || 3,
+        repsEn: value("exerciseRepsEn"),
+        repsAr: value("exerciseRepsAr"),
+        restEn: value("exerciseRestEn"),
+        restAr: value("exerciseRestAr")
+      });
+      closeModal();
+      await refreshWorkspaceData();
+      showToast(t("exerciseUpdatedToast") || "Exercise updated");
       return;
     }
     if (type === "submit-proof") {
@@ -3164,6 +3238,12 @@ function bindEvents() {
 
     if (action === "navigate") {
       state.view = actionButton.dataset.view;
+      saveView(state.view);
+      renderApp();
+      return;
+    }
+    if (action === "toggle-archived-exercises") {
+      state.filters.showArchivedExercises = !state.filters.showArchivedExercises;
       renderApp();
       return;
     }
@@ -3367,6 +3447,62 @@ function bindEvents() {
       });
       return;
     }
+    if (action === "restore-exercise") {
+      openConfirm({
+        title: t("restoreExerciseTitle") || "Restore Exercise",
+        body: t("restoreExerciseBody") || "Restore this exercise?",
+        label: t("restoreBtn") || "Restore",
+        tone: "primary",
+        action: async () => {
+          if (typeof restoreExercise === "function") {
+            await restoreExercise(actionButton.dataset.exerciseId);
+          } else {
+            await updateExercise(actionButton.dataset.exerciseId, { isActive: true });
+          }
+          await refreshWorkspaceData();
+          showToast(t("exerciseRestoredToast") || "Exercise restored");
+        }
+      });
+      return;
+    }
+    if (action === "edit-exercise") {
+      const exerciseId = actionButton.dataset.exerciseId;
+      const exercise = (state.coach?.exercises || []).find((ex) => ex.id === exerciseId);
+      if (!exercise) return;
+      openModal(`
+        <form data-form="edit-exercise">
+          <input type="hidden" name="exerciseId" value="${exercise.id}" />
+          ${modalHead(t("editExerciseTitle") || "Edit Exercise", "")}
+          <div class="modal-body">
+            <div class="form-grid">
+              ${inputField("exerciseNameEn", t("nameEnLabel"), exercise.nameEn, { required: true })}
+              ${inputField("exerciseNameAr", t("nameArLabel"), exercise.nameAr, { required: true })}
+              <div class="form-group">
+                <label class="form-label" for="exerciseDescEn">${t("descEnLabel")}</label>
+                <textarea class="form-control" id="exerciseDescEn" name="descEn" rows="2">${esc(exercise.descEn || "")}</textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="exerciseDescAr">${t("descArLabel")}</label>
+                <textarea class="form-control" id="exerciseDescAr" name="descAr" rows="2">${esc(exercise.descAr || "")}</textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="exerciseSets">${t("setsLabel")}</label>
+                <input class="form-control" id="exerciseSets" name="defaultSets" type="number" min="1" max="20" value="${exercise.defaultSets || 3}" required />
+              </div>
+              ${inputField("exerciseRepsEn", t("repsEnLabel"), exercise.repsEn)}
+              ${inputField("exerciseRepsAr", t("repsArLabel"), exercise.repsAr)}
+              ${inputField("exerciseRestEn", t("restEnLabel"), exercise.restEn)}
+              ${inputField("exerciseRestAr", t("restArLabel"), exercise.restAr)}
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" type="button" data-action="close-modal">${t("cancelBtn")}</button>
+            <button class="btn btn-primary" type="submit">${t("saveBtn") || "Save"}</button>
+          </div>
+        </form>
+      `);
+      return;
+    }
     if (action === "scroll-proof-queue") {
       document.getElementById("proofReviewQueue")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
@@ -3462,12 +3598,55 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && document.getElementById("appModalBackdrop")?.classList.contains("open")) {
+      const box = document.getElementById("appModalContent");
+      const form = box?.querySelector("form");
+      if (form) {
+        const data = new FormData(form);
+        let hasValue = false;
+        for (const [key, value] of data.entries()) {
+          if (key === "password" && String(value).length > 0) { hasValue = true; break; }
+          if (typeof value === "string" && value.trim().length > 0 && key !== "action") { hasValue = true; break; }
+        }
+        if (hasValue) {
+          openConfirm({
+            title: t("confirmDiscardTitle") || "Discard changes?",
+            body: t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?",
+            label: t("discardBtn") || "Discard",
+            tone: "danger",
+            action: () => closeModal()
+          });
+          event.preventDefault();
+          return;
+        }
+      }
       closeModal();
     }
   });
 
   document.getElementById("appModalBackdrop")?.addEventListener("click", (event) => {
-    if (event.target.id === "appModalBackdrop") closeModal();
+    if (event.target.id === "appModalBackdrop") {
+      const box = document.getElementById("appModalContent");
+      const form = box?.querySelector("form");
+      if (form) {
+        const data = new FormData(form);
+        let hasValue = false;
+        for (const [key, value] of data.entries()) {
+          if (key === "password" && String(value).length > 0) { hasValue = true; break; }
+          if (typeof value === "string" && value.trim().length > 0 && key !== "action") { hasValue = true; break; }
+        }
+        if (hasValue) {
+          openConfirm({
+            title: t("confirmDiscardTitle") || "Discard changes?",
+            body: t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?",
+            label: t("discardBtn") || "Discard",
+            tone: "danger",
+            action: () => closeModal()
+          });
+          return;
+        }
+      }
+      closeModal();
+    }
   });
 }
 

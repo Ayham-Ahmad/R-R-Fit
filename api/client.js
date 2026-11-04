@@ -94,9 +94,13 @@ export function mapSettings(row) {
 export function mapExercise(row) {
   const presetKey = row.preset_key || "squat";
   let mediaUrl = createStickmanGif(presetKey);
-  if (row.media_path && supabase) {
-    const { data } = supabase.storage.from("exercise-media").getPublicUrl(row.media_path);
-    if (data?.publicUrl) mediaUrl = data.publicUrl;
+  if (row.media_path) {
+    if (typeof row.media_path === "string" && (row.media_path.startsWith("data:") || row.media_path.startsWith("http://") || row.media_path.startsWith("https://"))) {
+      mediaUrl = row.media_path;
+    } else if (supabase) {
+      const { data } = supabase.storage.from("exercise-media").getPublicUrl(row.media_path);
+      if (data?.publicUrl) mediaUrl = data.publicUrl;
+    }
   }
 
   return {

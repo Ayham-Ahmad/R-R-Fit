@@ -26,3 +26,14 @@ npm-debug.log*
 
 # Local design reference duplicate
 desingRef.html
+
+tofix.md
+toFix.md
+exercises.json
+exercises_insert.sql
+remove_dashes.py
+make_sql.py
+gen_sql_exercises*.py
+gen_exercises_sql*.py
+exercises_sample.txt
+*.sql.bak
