@@ -14,6 +14,23 @@ __pycache__/
 .env.*
 !.env.example
 
+# Local data, notes and scratch files
+/data/
+/scratch/
+test_exercises*.html
+serve.mjs
+tofix.md
+toFix.md
+desingRef.html
+*.sql.bak
+exercises.json
+exercises_insert.sql
+exercises_sample.txt
+remove_dashes.py
+make_sql.py
+gen_sql_exercises*.py
+gen_exercises_sql*.py
+
 # OS and editor files
 .DS_Store
 Thumbs.db
@@ -23,17 +40,3 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
-
-# Local design reference duplicate
-desingRef.html
-
-tofix.md
-toFix.md
-exercises.json
-exercises_insert.sql
-remove_dashes.py
-make_sql.py
-gen_sql_exercises*.py
-gen_exercises_sql*.py
-exercises_sample.txt
-*.sql.bak
