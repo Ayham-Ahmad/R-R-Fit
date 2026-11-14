@@ -99,6 +99,13 @@ function cleanExerciseDescription(value) {
     .trim();
 }
 
+function staticThumbUrl(url) {
+  if (typeof url !== "string") return url;
+  const match = url.match(/^\/(?:assets\/)?exercises\/([^/?#]+\.svg)([?#].*)?$/i);
+  if (!match) return url;
+  return `/exercises/thumbs/${match[1]}${match[2] || ""}`;
+}
+
 export function mapExercise(row) {
   const presetKey = row.preset_key || "squat";
   let mediaUrl = createStickmanGif(presetKey);
@@ -106,8 +113,9 @@ export function mapExercise(row) {
     if (typeof row.media_path === "string") {
       if (row.media_path.startsWith("data:") || row.media_path.startsWith("http://") || row.media_path.startsWith("https://")) {
         mediaUrl = row.media_path;
-      } else if (row.media_path.startsWith("assets/") || row.media_path.startsWith("exercises/") || row.media_path.includes("/exercises/")) {
-        mediaUrl = row.media_path.startsWith("/") ? row.media_path : `/${row.media_path}`;
+      } else if (/^\/?(?:assets\/)?exercises\/[^/?#]+\.(?:svg|gif|png|jpe?g|webp)$/i.test(row.media_path)) {
+        const localPath = row.media_path.replace(/^\/?(?:assets\/)?/, "");
+        mediaUrl = `/${localPath}`;
       } else if (supabase) {
         const { data } = supabase.storage.from("exercise-media").getPublicUrl(row.media_path);
         if (data?.publicUrl) mediaUrl = data.publicUrl;
@@ -130,6 +138,7 @@ export function mapExercise(row) {
     presetKey,
     mediaPath: row.media_path || null,
     mediaUrl,
+    thumbUrl: staticThumbUrl(mediaUrl),
     isActive: row.is_active !== false
   };
 }

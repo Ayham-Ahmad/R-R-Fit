@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 export default defineConfig({
   root: resolve(process.cwd(), "frontend"),
   envDir: resolve(process.cwd()),
-  publicDir: false,
+  publicDir: resolve(process.cwd(), "frontend/public"),
   server: {
     port: 5173,
     fs: {

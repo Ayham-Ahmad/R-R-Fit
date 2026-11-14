@@ -492,7 +492,25 @@ Object.assign(I18N.en, {
   landingFooterTagline: "Private coaching. Verified progress.",
   landingFooterNote: "Accounts are created by your coach.",
   landingBackHome: "Back to home",
-  landingCopyright: "All rights reserved."
+  landingCopyright: "All rights reserved.",
+  navExerciseLibrary: "Exercise Library",
+  exerciseLibrarySub: "Browse every exercise and see exactly how it's performed.",
+  exerciseDetailsTitle: "Exercise details",
+  viewDetails: "View details",
+  restLabel: "Rest",
+  showArchivedExercises: "Show archived",
+  showActiveExercises: "Show active",
+  restoreBtn: "Restore",
+  restoreExerciseTitle: "Restore exercise",
+  restoreExerciseBody: "Restore this exercise to the active library?",
+  exerciseRestoredToast: "Exercise restored",
+  editExerciseTitle: "Edit exercise",
+  saveBtn: "Save",
+  exerciseUpdatedToast: "Exercise updated",
+  confirmDiscardTitle: "Discard changes?",
+  confirmDiscardBody: "You have unsaved changes. Close this form anyway?",
+  discardBtn: "Discard",
+  mediaUnavailableLabel: "Preview unavailable"
 });
 
 Object.assign(I18N.ar, {
@@ -567,5 +585,23 @@ Object.assign(I18N.ar, {
   landingFooterTagline: "تدريب خاص. تقدم موثق.",
   landingFooterNote: "يتم إنشاء الحسابات من قبل مدربتك.",
   landingBackHome: "العودة إلى الرئيسية",
-  landingCopyright: "جميع الحقوق محفوظة."
+  landingCopyright: "جميع الحقوق محفوظة.",
+  navExerciseLibrary: "مكتبة التمارين",
+  exerciseLibrarySub: "تصفّحي جميع التمارين وشاهدي طريقة أدائها بالتفصيل.",
+  exerciseDetailsTitle: "تفاصيل التمرين",
+  viewDetails: "عرض التفاصيل",
+  restLabel: "الراحة",
+  showArchivedExercises: "عرض المؤرشفة",
+  showActiveExercises: "عرض النشطة",
+  restoreBtn: "استعادة",
+  restoreExerciseTitle: "استعادة التمرين",
+  restoreExerciseBody: "هل تريدين استعادة هذا التمرين إلى المكتبة النشطة؟",
+  exerciseRestoredToast: "تمت استعادة التمرين",
+  editExerciseTitle: "تعديل التمرين",
+  saveBtn: "حفظ",
+  exerciseUpdatedToast: "تم تحديث التمرين",
+  confirmDiscardTitle: "تجاهل التغييرات؟",
+  confirmDiscardBody: "لديك تغييرات غير محفوظة. هل تريدين إغلاق النموذج؟",
+  discardBtn: "تجاهل",
+  mediaUnavailableLabel: "المعاينة غير متاحة"
 });

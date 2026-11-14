@@ -833,6 +833,75 @@ html[lang="en"] .list-arrow .icon { transform: none; }
 .exercise-meta { display: flex; flex-wrap: wrap; gap: 5px; }
 .exercise-meta span { background: var(--bg-subtle); color: var(--text-secondary); border-radius: 999px; padding: 3px 8px; font-size: 0.68rem; font-weight: 600; }
 
+.trainee-exercise-card {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.trainee-exercise-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-card);
+}
+.trainee-exercise-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.exercise-desc-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.exercise-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.exercise-card-cta .icon { width: 13px; height: 13px; }
+[dir="rtl"] .exercise-card-cta .icon { transform: scaleX(-1); }
+
+.exercise-detail-body { display: flex; flex-direction: column; gap: 16px; }
+.exercise-detail-media {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.exercise-detail-media img {
+  width: 100%;
+  aspect-ratio: 240 / 145;
+  max-height: 340px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+.exercise-detail-media.is-empty {
+  min-height: 180px;
+}
+.exercise-media-placeholder {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.exercise-detail-desc { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.6; }
+.exercise-detail-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.exercise-detail-meta-row {
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.exercise-detail-meta-row span { font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-secondary); }
+.exercise-detail-meta-row strong { font-size: 0.86rem; }
+
 .leaderboard-hero {
   background: var(--winner-card-bg);
   border: 2px solid var(--winner-border);
@@ -1362,6 +1431,8 @@ html[lang="en"] .list-arrow .icon { transform: none; }
   .day-grid, .trainee-day-grid { grid-template-columns: 1fr; }
   .exercise-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
   .exercise-media { height: 150px; }
+  .exercise-detail-media { padding: 8px; }
+  .exercise-detail-media img { max-height: 240px; }
   .leaderboard-hero { padding: 20px; }
   .winner-spotlight { max-width: none; }
   .day-bars { gap: 4px; height: 155px; }
