@@ -13,7 +13,7 @@ English and Arabic out of the box, with full RTL support and per-user language/t
 ### Trainee
 - Weekly schedule with sets, reps, rest, and coach notes
 - Static exercise previews on each scheduled workout; tap one to open the animated demo with full details
-- Workout check-in with proof screenshots (compressed before upload)
+- Workout check-in with proof screenshots (compressed in the browser) or a WhatsApp share
 - Progress, streaks, and weekly scoring
 - Leaderboard built on verified sessions
 - Profile, appearance, and password settings
@@ -31,6 +31,24 @@ English and Arabic out of the box, with full RTL support and per-user language/t
 - Platform branding and settings
 
 Accounts are created by a coach or admin; there is no public sign-up.
+
+### Proof lifecycle
+
+Trainees can send proof two ways: upload a screenshot in the app, or share the
+photo with the coach on WhatsApp (the workout then appears in the coach queue
+as "Via WhatsApp"). Photos up to 10 MB are accepted and compressed in the
+browser before upload. The coach can approve a workout either way, with or
+without an in-app screenshot.
+
+Proof images are removed automatically to keep storage small:
+
+| Proof state | Image deleted after |
+| --- | --- |
+| Verified or rejected | 3 days |
+| Unreviewed (pending review) | 14 days |
+
+The workout record, status, comment, and coach note stay. Cleanup runs from the
+`cleanup-proofs` Edge Function on a daily schedule (see `sql/schedule_cleanup.sql`).
 
 ---
 
@@ -71,6 +89,7 @@ Dev server: `http://localhost:5173`
 | `SUPABASE_SERVICE_ROLE_KEY` | scripts | Admin operations — never ship this |
 | `SUPABASE_DB_URL` | scripts | Direct Postgres URL for migrations |
 | `APP_ORIGIN` | edge function | Comma-separated allowed origins |
+| `CLEANUP_SECRET` | edge function (optional) | Shared secret for manual cleanup invocations |
 
 Only `VITE_*` values are bundled into the frontend. A service-role key must never appear in frontend code or a `VITE_*` variable.
 
@@ -108,7 +127,7 @@ backend/
   scripts/verify_db.py   Validate / apply / seed / bootstrap
   supabase/
     migrations/          Ordered SQL migrations
-    functions/           Edge functions (admin-users)
+    functions/           Edge functions (admin-users, cleanup-proofs)
     schema.sql           Base schema
     rls_policies.sql     Row-level security
     rpc_functions.sql    Database functions
@@ -130,6 +149,9 @@ sql/
   fix_exercises.sql      One-shot description + media fix (run manually)
   update_media_paths.sql Media-only statements
   clean_animation_codes.sql Description-only statements
+  relax_proof_requirements.sql Screenshot-only proof trigger
+  proof_channels_and_cleanup.sql WhatsApp channel, coach approval, 10 MB bucket
+  schedule_cleanup.sql   Daily proof-cleanup cron schedule
 
 data/                    Local-only exercise data (git-ignored)
 docs/                    Local notes (git-ignored)
@@ -176,8 +198,29 @@ The same statements are available separately as `update_media_paths.sql` and `cl
    ```
 
 4. Run `sql/fix_exercises.sql` if the exercise media paths have not been set yet.
+5. Run `sql/proof_channels_and_cleanup.sql` to enable the WhatsApp proof channel, coach approval without a screenshot, and the 10 MB proof bucket.
 
 Migrations live in `backend/supabase/migrations/` and are applied in filename order. `verify_db.py --apply` requires `SUPABASE_DB_URL`.
+
+### Proof cleanup
+
+The `cleanup-proofs` Edge Function deletes proof images after their retention
+window (3 days after approval/rejection, 14 days after completion if
+unreviewed). The workout record is kept.
+
+```powershell
+supabase functions deploy cleanup-proofs
+```
+
+Then run `sql/schedule_cleanup.sql` in the SQL editor and replace
+`<PROJECT_REF>`. Store the service role key in Vault first:
+
+```sql
+select vault.create_secret('<SERVICE_ROLE_KEY>', 'service_role_key');
+```
+
+If `pg_cron` is unavailable on your plan, create the same daily schedule in the
+Supabase Dashboard under **Integrations → Cron**.
 
 ---
 

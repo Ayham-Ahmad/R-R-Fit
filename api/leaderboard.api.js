@@ -81,7 +81,7 @@ export async function getProofLogs(traineeId) {
     await client
       .from("scheduled_workouts")
       .select(
-        "id, day_key, exercise_id, status, verification_status, verification_note, proof_weights, proof_summary_en, proof_summary_ar, proof_rpe, proof_screenshot_path, completed_at"
+        "id, day_key, exercise_id, status, verification_status, verification_note, proof_weights, proof_summary_en, proof_summary_ar, proof_rpe, proof_screenshot_path, proof_channel, proof_purged_at, completed_at"
       )
       .eq("trainee_id", traineeId)
       .in("status", ["completed", "skipped"])
@@ -101,6 +101,8 @@ export async function getProofLogs(traineeId) {
     summaryAr: row.proof_summary_ar || "",
     rpe: row.proof_rpe,
     screenshotPath: row.proof_screenshot_path,
+    proofChannel: row.proof_channel || "app",
+    proofPurgedAt: row.proof_purged_at || null,
     completedAt: row.completed_at
   }));
 }

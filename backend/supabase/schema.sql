@@ -368,6 +368,8 @@ create table if not exists public.scheduled_workouts (
   proof_weights text,
   proof_rpe integer check (proof_rpe between 1 and 10),
   proof_screenshot_path text,
+  proof_channel text not null default 'app' check (proof_channel in ('app', 'whatsapp')),
+  proof_purged_at timestamptz,
   verification_status text not null default 'none'
     check (verification_status in ('none', 'pending_review', 'verified', 'rejected')),
   verification_note text,
@@ -386,6 +388,9 @@ create index if not exists scheduled_workouts_date_idx
   on public.scheduled_workouts(scheduled_date);
 create unique index if not exists scheduled_workouts_proof_path_unique_idx
   on public.scheduled_workouts(proof_screenshot_path)
+  where proof_screenshot_path is not null;
+create index if not exists scheduled_workouts_proof_cleanup_idx
+  on public.scheduled_workouts(verification_status, verified_at, completed_at)
   where proof_screenshot_path is not null;
 
 drop trigger if exists scheduled_workouts_set_updated_at on public.scheduled_workouts;
@@ -442,6 +447,7 @@ begin
        or new.proof_summary_en is distinct from old.proof_summary_en
        or new.proof_summary_ar is distinct from old.proof_summary_ar
        or new.proof_screenshot_path is distinct from old.proof_screenshot_path
+       or new.proof_channel is distinct from old.proof_channel
        or new.completed_at is distinct from old.completed_at then
       raise exception 'Finalized workout results are locked';
     end if;
@@ -449,9 +455,11 @@ begin
 
   if v_role in ('coach', 'admin') then
     if new.verification_status in ('verified', 'rejected') then
-      if old.status <> 'completed' or old.proof_screenshot_path is null then
+      if old.status not in ('pending', 'completed') then
         raise exception 'Only submitted workout proof can be verified or rejected';
       end if;
+      new.status = 'completed';
+      new.completed_at = coalesce(old.completed_at, new.completed_at, now());
       new.verified_by = coalesce(auth.uid(), new.verified_by);
       new.verified_at = coalesce(new.verified_at, now());
     else
@@ -491,9 +499,10 @@ begin
 
   new.verified_by = null;
   new.verified_at = null;
+  new.proof_channel = coalesce(new.proof_channel, 'app');
 
   if new.status = 'completed' then
-    if new.proof_screenshot_path is null then
+    if new.proof_channel = 'app' and new.proof_screenshot_path is null then
       raise exception 'Proof screenshot is required';
     end if;
     new.verification_status = 'pending_review';
@@ -661,14 +670,14 @@ create table if not exists public.leaderboard_previous_winners (
 );
 
 -- ---------------------------------------------------------------------------
--- Private proof screenshot bucket (WebP under 100 KB)
+-- Private proof screenshot bucket (compressed browser output, up to 10 MB)
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('workout-proofs', 'workout-proofs', false, 102400, array['image/webp'])
+values ('workout-proofs', 'workout-proofs', false, 10485760, array['image/webp', 'image/jpeg'])
 on conflict (id) do update
 set public = false,
-    file_size_limit = 102400,
-    allowed_mime_types = array['image/webp'];
+    file_size_limit = 10485760,
+    allowed_mime_types = array['image/webp', 'image/jpeg'];
 
 -- Exercise library media is public read; writes are restricted to the coach/admin.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

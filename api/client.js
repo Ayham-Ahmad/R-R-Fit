@@ -180,6 +180,8 @@ export function mapWorkout(row) {
     proofWeights: row.proof_weights || "",
     proofRpe: row.proof_rpe,
     proofScreenshotPath: row.proof_screenshot_path || null,
+    proofChannel: row.proof_channel || "app",
+    proofPurgedAt: row.proof_purged_at || null,
     verificationNote: row.verification_note || "",
     weightLogEn: row.proof_weights || "",
     weightLogAr: row.proof_weights || "",

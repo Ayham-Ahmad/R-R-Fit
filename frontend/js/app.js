@@ -27,6 +27,7 @@ import {
 } from "../../api/admin.api.js";
 import {
   addWorkoutToDay,
+  approveWorkout,
   createExercise,
   deleteExercise,
   loadCoachWorkspace,
@@ -43,6 +44,7 @@ import {
   loadTraineeWorkspace,
   markWorkoutSkipped,
   saveTraineeProfile,
+  submitWhatsAppProof,
   submitWorkoutProof
 } from "../../api/trainee.api.js";
 import {
@@ -53,7 +55,7 @@ import {
   saveLeaderboardSettings,
   startNewLeaderboardWeek
 } from "../../api/leaderboard.api.js";
-import { compressProofImage } from "./compression.js";
+import { compressProofImage, formatBytes, toShareJpeg } from "./compression.js";
 
 const env = import.meta.env || {};
 const LANG_KEY = "rr_fit_language";
@@ -150,6 +152,11 @@ const state = {
     showArchivedExercises: false
   },
   proofFile: null,
+  proofBlob: null,
+  proofShareBlob: null,
+  proofMeta: null,
+  proofPreviewUrl: null,
+  proofCompressing: false,
   proofWorkoutId: null,
   modalFile: null,
   confirmAction: null,
@@ -321,6 +328,7 @@ function icon(name) {
     lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
     unlock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
     shield: '<path d="M12 3 4 6v5c0 5 3.4 8.2 8 10 4.6-1.8 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>',
+    share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.7 6.8-3.4M8.6 13.3l6.8 3.4"/>',
     key: '<circle cx="7.5" cy="15.5" r="3.5"/><path d="m10.5 12.5 8-8M16 7l2 2M18 5l2 2"/>',
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
@@ -433,6 +441,8 @@ function errorMessage(error) {
     PROOF_RPE_INVALID: "errProofRpe",
     PROOF_FILE_INVALID: "errProofFileType",
     PROOF_FILE_TYPE_INVALID: "errProofFileType",
+    PROOF_FILE_UNSUPPORTED: "errProofUnsupported",
+    PROOF_COMPRESSING: "errProofCompressing",
     MISSING_WORKOUT: "errProofNotFound",
     PROOF_FILE_TOO_LARGE: "errProofFileSize",
     EXERCISE_MEDIA_TYPE_INVALID: "errExerciseMediaType",
@@ -1565,6 +1575,7 @@ function renderCoachDashboard() {
                   <strong>${esc(state.lang === "ar" ? trainee.nameAr : trainee.nameEn)}</strong>
                   <span>${getExerciseName(item.exerciseId)} · ${dayName(dayKey)}</span>
                 </div>
+                ${item.proofChannel === "whatsapp" ? `<span class="badge badge-info">${t("whatsappProofBadge")}</span>` : ""}
                 <button class="btn btn-sm btn-secondary" type="button" data-action="review-proof" data-trainee-id="${trainee.id}" data-workout-id="${item.uid}">${t("reviewBtn")}</button>
               </div>
             `).join("") : emptyState(t("allCaughtUpTitle"), t("allCaughtUpBody"))}
@@ -1751,7 +1762,9 @@ function renderBuilderDay(trainee, dayKey) {
 
 function renderBuilderWorkout(item, trainee) {
   const completed = item.status === "completed";
+  const pendingReview = completed && item.verificationStatus === "pending_review";
   const locked = item.status !== "pending";
+  const canApprove = item.status === "pending" || pendingReview;
   return `
     <div class="workout-chip ${completed ? "completed" : ""}">
       <div class="workout-chip-main">
@@ -1763,6 +1776,8 @@ function renderBuilderWorkout(item, trainee) {
       </div>
       <div class="workout-chip-actions">
         ${completed ? verificationBadge(item.verificationStatus) : ""}
+        ${completed && item.proofChannel === "whatsapp" ? `<span class="badge badge-info">${t("whatsappProofBadge")}</span>` : ""}
+        ${canApprove ? `<button class="icon-btn success" type="button" data-action="approve-workout" data-workout-id="${item.uid}" title="${t("approveWorkoutBtn")}" aria-label="${t("approveWorkoutBtn")}">${icon("check")}</button>` : ""}
         <button class="icon-btn" type="button" data-action="edit-workout" data-workout-id="${item.uid}" ${locked ? "disabled" : ""} title="${locked ? t("completedLocked") : t("editBtn")}" aria-label="${locked ? t("completedLocked") : t("editBtn")}">${locked ? icon("lock") : icon("settings")}</button>
         <button class="icon-btn danger" type="button" data-action="remove-workout" data-workout-id="${item.uid}" data-trainee-id="${trainee.id}" ${completed ? "disabled" : ""} title="${completed ? t("completedLocked") : t("removeBtn")}" aria-label="${completed ? t("completedLocked") : t("removeBtn")}">${icon("lock")}</button>
       </div>
@@ -1917,6 +1932,7 @@ function renderLeaderboardManagement() {
                 <strong>${esc(state.lang === "ar" ? trainee.nameAr : trainee.nameEn)}</strong>
                 <span>${getExerciseName(item.exerciseId)} · ${dayName(dayKey)} · ${formatDateTime(item.completedAt)}</span>
               </div>
+              ${item.proofChannel === "whatsapp" ? `<span class="badge badge-info">${t("whatsappProofBadge")}</span>` : ""}
               <button class="btn btn-sm btn-secondary" type="button" data-action="review-proof" data-trainee-id="${trainee.id}" data-workout-id="${item.uid}">${t("reviewBtn")}</button>
             </div>
           `).join("") : emptyState(t("allCaughtUpTitle"), t("allCaughtUpBody"))}
@@ -2447,10 +2463,22 @@ function closeModal() {
   document.body.classList.remove("modal-open");
   state.confirmAction = null;
   state.reviewProof = null;
-  state.proofFile = null;
+  resetProofState();
   state.modalFile = null;
-  state.proofWorkoutId = null;
   state.lastCreated = null;
+}
+
+function resetProofState() {
+  if (state.proofPreviewUrl) {
+    URL.revokeObjectURL(state.proofPreviewUrl);
+  }
+  state.proofFile = null;
+  state.proofBlob = null;
+  state.proofShareBlob = null;
+  state.proofMeta = null;
+  state.proofPreviewUrl = null;
+  state.proofCompressing = false;
+  state.proofWorkoutId = null;
 }
 
 function openConfirm({ title, body, label, tone = "primary", action }) {
@@ -2752,8 +2780,8 @@ function openCreateExerciseModal() {
 function openCompleteWorkoutModal(workoutId) {
   const context = findWorkoutContext(workoutId);
   if (!context) return showToast(t("errGeneric"), "error");
+  resetProofState();
   state.proofWorkoutId = workoutId;
-  state.proofFile = null;
   openModal(`
     <form data-form="submit-proof">
       ${modalHead(t("submitProofTitle"), `${getExerciseName(context.item.exerciseId)} · ${dayName(context.dayKey)}`)}
@@ -2768,11 +2796,22 @@ function openCompleteWorkoutModal(workoutId) {
             <label class="form-label" for="proofFile">${t("screenshotLabel")}</label>
             <input class="form-control file-input" id="proofFile" type="file" accept="image/*" required />
             <p class="form-hint" id="proofFileName">${t("screenshotHint")}</p>
+            <div class="proof-preview" id="proofPreview" hidden>
+              <img id="proofPreviewImg" alt="" />
+              <div class="proof-preview-meta">
+                <strong id="proofPreviewStatus"></strong>
+                <span id="proofPreviewSizes"></span>
+              </div>
+            </div>
           </div>
           <div class="form-group span-full">
             <label class="form-label" for="proofComment">${t("commentOptionalLabel")}</label>
             <textarea class="form-control" id="proofComment" name="comment" rows="3" placeholder="${t("commentPlaceholder")}"></textarea>
           </div>
+        </div>
+        <div class="proof-share">
+          <button class="btn btn-whatsapp" type="button" data-action="share-whatsapp" disabled>${icon("share")}${t("whatsappShareBtn")}</button>
+          <p class="form-hint">${t("whatsappShareHint")}</p>
         </div>
       </div>
       <div class="modal-actions">
@@ -2781,6 +2820,52 @@ function openCompleteWorkoutModal(workoutId) {
       </div>
     </form>
   `);
+}
+
+function renderProofPreview() {
+  const preview = document.getElementById("proofPreview");
+  const image = document.getElementById("proofPreviewImg");
+  const status = document.getElementById("proofPreviewStatus");
+  const sizes = document.getElementById("proofPreviewSizes");
+  const label = document.getElementById("proofFileName");
+  const shareButton = document.querySelector('#appModalContent [data-action="share-whatsapp"]');
+  if (!preview) return;
+
+  if (state.proofCompressing) {
+    preview.hidden = false;
+    if (image) image.hidden = true;
+    if (status) {
+      status.textContent = t("proofCompressing");
+      status.className = "proof-preview-status is-busy";
+    }
+    if (sizes) sizes.textContent = "";
+    if (label) label.textContent = state.proofFile?.name || t("screenshotHint");
+    if (shareButton) shareButton.disabled = true;
+    return;
+  }
+
+  if (!state.proofBlob || !state.proofMeta) {
+    preview.hidden = true;
+    if (image) image.hidden = true;
+    if (shareButton) shareButton.disabled = true;
+    return;
+  }
+
+  if (!state.proofPreviewUrl) state.proofPreviewUrl = URL.createObjectURL(state.proofBlob);
+  preview.hidden = false;
+  if (image) {
+    image.hidden = false;
+    image.src = state.proofPreviewUrl;
+  }
+  if (status) {
+    status.textContent = t("proofReady");
+    status.className = "proof-preview-status is-ready";
+  }
+  if (sizes) {
+    sizes.textContent = `${formatBytes(state.proofMeta.originalBytes)} → ${formatBytes(state.proofMeta.bytes)}`;
+  }
+  if (label) label.textContent = state.proofFile?.name || t("screenshotHint");
+  if (shareButton) shareButton.disabled = false;
 }
 
 function openChangePasswordModal() {
@@ -2869,7 +2954,11 @@ async function openReviewProofModal(traineeId, workoutId) {
               <span>${t("screenshotLabel")}</span>
               ${screenshotUrl
                 ? `<a href="${esc(screenshotUrl)}" target="_blank" rel="noopener"><img src="${esc(screenshotUrl)}" alt="${t("screenshotLabel")}" /></a>`
-                : `<div class="no-screenshot">${icon("shield")}<p>${t("noScreenshot")}</p></div>`}
+                : log.proofPurgedAt
+                  ? `<div class="no-screenshot">${icon("shield")}<p>${t("proofImagePurged")}</p></div>`
+                  : log.proofChannel === "whatsapp"
+                    ? `<div class="whatsapp-proof-panel">${icon("share")}<strong>${t("whatsappProofBadge")}</strong><p>${t("whatsappNoScreenshot")}</p></div>`
+                    : `<div class="no-screenshot">${icon("shield")}<p>${t("noScreenshot")}</p></div>`}
             </div>
           </div>
         </div>
@@ -3150,12 +3239,18 @@ async function handleFormSubmit(form) {
       return;
     }
     if (type === "submit-proof") {
-      if (!state.proofFile) throw new Error("PROOF_FILE_REQUIRED");
-      const screenshotBlob = await compressProofImage(state.proofFile);
+      if (state.proofCompressing) throw new Error("PROOF_COMPRESSING");
+      const file = state.proofFile || document.getElementById("proofFile")?.files?.[0] || null;
+      if (!file) throw new Error("PROOF_FILE_REQUIRED");
+      if (!state.proofBlob || !state.proofMeta) {
+        const compressed = await compressProofImage(file);
+        state.proofBlob = compressed.blob;
+        state.proofMeta = compressed;
+      }
       await submitWorkoutProof({
         workoutId: value("workoutId"),
         comment: value("comment"),
-        screenshotBlob
+        screenshotBlob: state.proofBlob
       });
       closeModal();
       await refreshWorkspaceData();
@@ -3189,6 +3284,76 @@ async function handleFormSubmit(form) {
     showToast(errorMessage(error), "error");
   } finally {
     setButtonBusy(button, false);
+  }
+}
+
+async function handleShareWhatsApp(button) {
+  if (!state.proofBlob || !state.proofMeta) {
+    showToast(t("errWhatsappImageRequired"), "error");
+    return;
+  }
+  const workoutId = state.proofWorkoutId;
+  const context = findWorkoutContext(workoutId);
+  if (!workoutId || !context) {
+    showToast(t("errProofNotFound"), "error");
+    return;
+  }
+  const comment = String(document.getElementById("proofComment")?.value || "").trim();
+  const coachPhone = state.trainee?.coach?.whatsappPhone || state.trainee?.trainee?.coach?.whatsappPhone || "";
+  const traineeName = state.lang === "ar"
+    ? (state.profile?.nameAr || state.profile?.name_ar || state.trainee?.trainee?.nameAr || "")
+    : (state.profile?.nameEn || state.profile?.name_en || state.trainee?.trainee?.nameEn || "");
+  const shareBlob = state.proofShareBlob || state.proofBlob;
+  const shareType = shareBlob.type || "image/jpeg";
+  const shareExtension = shareType === "image/webp" ? "webp" : shareType === "image/png" ? "png" : "jpg";
+  const shareFile = new File([shareBlob], `workout-proof.${shareExtension}`, { type: shareType });
+  const shareText = [
+    t("whatsappShareTitle"),
+    `${getExerciseName(context.item.exerciseId)} · ${dayName(context.dayKey)}`,
+    traineeName || "",
+    comment
+  ].filter(Boolean).join(" · ");
+
+  setButtonBusy(button, true);
+  let usedFallback = false;
+  try {
+    let shared = false;
+    const canShareFiles = typeof navigator?.share === "function"
+      && typeof navigator?.canShare === "function"
+      && navigator.canShare({ files: [shareFile] });
+
+    if (canShareFiles) {
+      try {
+        await navigator.share({ files: [shareFile], text: shareText });
+        shared = true;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+
+    if (!shared) {
+      usedFallback = true;
+      const url = URL.createObjectURL(shareBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `workout-proof.${shareExtension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+      if (coachPhone) {
+        window.open(`https://wa.me/${String(coachPhone).replace(/[^\d]/g, "")}`, "_blank", "noopener");
+      }
+    }
+
+    await submitWhatsAppProof({ workoutId, comment });
+    closeModal();
+    await refreshWorkspaceData();
+    showToast(usedFallback ? t("whatsappFallbackToast") : t("whatsappProofSubmittedToast"), usedFallback ? "info" : "success");
+  } catch (error) {
+    showToast(errorMessage(error), "error");
+  } finally {
+    if (button.isConnected) setButtonBusy(button, false);
   }
 }
 
@@ -3555,6 +3720,24 @@ function bindEvents() {
       openCompleteWorkoutModal(actionButton.dataset.workoutId);
       return;
     }
+    if (action === "share-whatsapp") {
+      handleShareWhatsApp(actionButton);
+      return;
+    }
+    if (action === "approve-workout") {
+      const workoutId = actionButton.dataset.workoutId;
+      openConfirm({
+        title: t("approveWorkoutConfirmTitle"),
+        body: t("approveWorkoutConfirmBody"),
+        label: t("approveWorkoutBtn"),
+        action: async () => {
+          await approveWorkout(workoutId);
+          await refreshWorkspaceData();
+          showToast(t("approveWorkoutToast"));
+        }
+      });
+      return;
+    }
     if (action === "skip-workout") {
       openConfirm({
         title: t("skipWorkoutTitle"),
@@ -3621,9 +3804,43 @@ function bindEvents() {
     }
     if (target.id === "proofFile") {
       const file = target.files?.[0] || null;
+      const workoutId = state.proofWorkoutId;
+      resetProofState();
+      state.proofWorkoutId = workoutId;
+      if (!file) {
+        renderProofPreview();
+        return;
+      }
       state.proofFile = file;
-      const label = document.getElementById("proofFileName");
-      if (label) label.textContent = file ? `${file.name} · ${Math.round(file.size / 1024)} KB` : t("screenshotHint");
+      state.proofCompressing = true;
+      renderProofPreview();
+      (async () => {
+        try {
+          const compressed = await compressProofImage(file);
+          if (state.proofWorkoutId !== workoutId || state.proofFile !== file) return;
+          state.proofBlob = compressed.blob;
+          state.proofMeta = compressed;
+          // WhatsApp is happiest with JPEG. Re-encode now so the share sheet can
+          // open synchronously inside the click gesture later.
+          try {
+            const shareBlob = await toShareJpeg(compressed.blob);
+            if (state.proofWorkoutId !== workoutId || state.proofFile !== file) return;
+            state.proofShareBlob = shareBlob;
+          } catch {
+            state.proofShareBlob = null;
+          }
+          state.proofCompressing = false;
+          renderProofPreview();
+        } catch (error) {
+          if (state.proofWorkoutId !== workoutId || state.proofFile !== file) return;
+          state.proofCompressing = false;
+          state.proofBlob = null;
+          state.proofShareBlob = null;
+          state.proofMeta = null;
+          renderProofPreview();
+          showToast(errorMessage(error), "error");
+        }
+      })();
       return;
     }
     if (target.id === "exerciseMediaFile") {

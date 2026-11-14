@@ -95,14 +95,18 @@ export async function submitWorkoutProof({
 
   if (!screenshotBlob) throw new Error("PROOF_FILE_REQUIRED");
   if (!(screenshotBlob instanceof Blob)) throw new Error("PROOF_FILE_INVALID");
-  if (screenshotBlob.size > 102400) throw new Error("PROOF_FILE_TOO_LARGE");
-  if (screenshotBlob.type !== "image/webp") throw new Error("PROOF_FILE_TYPE_INVALID");
+  if (screenshotBlob.size > 10 * 1024 * 1024) throw new Error("PROOF_FILE_TOO_LARGE");
+  const contentType = screenshotBlob.type;
+  if (!["image/webp", "image/jpeg"].includes(contentType)) {
+    throw new Error("PROOF_FILE_TYPE_INVALID");
+  }
+  const extension = contentType === "image/jpeg" ? "jpg" : "webp";
 
-  const screenshotPath = `${user.id}/${workoutId}-${Date.now()}.webp`;
+  const screenshotPath = `${user.id}/${workoutId}-${Date.now()}.${extension}`;
   const { error: uploadError } = await client.storage
     .from("workout-proofs")
     .upload(screenshotPath, screenshotBlob, {
-      contentType: "image/webp",
+      contentType,
       cacheControl: "3600",
       upsert: false
     });
@@ -114,6 +118,7 @@ export async function submitWorkoutProof({
         .from("scheduled_workouts")
         .update({
           status: "completed",
+          proof_channel: "app",
           proof_summary_en: cleanComment || null,
           proof_screenshot_path: screenshotPath,
           verification_status: "pending_review",
@@ -131,6 +136,35 @@ export async function submitWorkoutProof({
     }
     throw error;
   }
+}
+
+// The trainee shares the compressed proof on WhatsApp instead of uploading it.
+// No screenshot is stored; the coach reviews and approves it from the queue.
+export async function submitWhatsAppProof({ workoutId, comment }) {
+  if (!workoutId) throw new Error("MISSING_WORKOUT");
+  const cleanComment = String(comment || "").trim();
+
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+
+  return unwrap(
+    await client
+      .from("scheduled_workouts")
+      .update({
+        status: "completed",
+        proof_channel: "whatsapp",
+        proof_summary_en: cleanComment || null,
+        proof_screenshot_path: null,
+        verification_status: "pending_review",
+        completed_at: new Date().toISOString()
+      })
+      .eq("id", workoutId)
+      .eq("trainee_id", user.id)
+      .select("*")
+      .single(),
+    "Unable to submit workout proof"
+  );
 }
 
 export async function markWorkoutSkipped(workoutId) {

@@ -1321,6 +1321,66 @@ html[lang="en"] .list-arrow .icon { transform: none; }
 .proof-guide .icon { color: var(--primary); margin-top: 2px; }
 .proof-guide p { color: var(--text-secondary); font-size: 0.78rem; }
 
+.proof-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.proof-preview[hidden] { display: none; }
+.proof-preview img[hidden] { display: none; }
+.proof-preview img {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+.proof-preview-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.proof-preview-meta strong { font-size: 0.8rem; }
+.proof-preview-meta span { font-size: 0.74rem; color: var(--text-muted); }
+.proof-preview-status.is-busy { color: var(--text-secondary); }
+.proof-preview-status.is-ready { color: var(--status-success-text, #1D7A46); }
+
+.proof-share {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.whatsapp-proof-panel {
+  min-height: 220px;
+  border: 1px dashed rgba(37, 211, 102, 0.55);
+  border-radius: var(--radius-md);
+  background: rgba(37, 211, 102, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 20px;
+}
+.whatsapp-proof-panel .icon { width: 28px; height: 28px; color: #1EBE5A; }
+.whatsapp-proof-panel strong { color: var(--text-primary); }
+
+.icon-btn.success { color: var(--status-success-text, #1D7A46); }
+.icon-btn.success:hover {
+  background: var(--status-success-bg, rgba(29, 122, 70, 0.12));
+  color: var(--status-success-text, #1D7A46);
+  border-color: var(--status-success-text, #1D7A46);
+}
+
 .radio-stack { display: flex; flex-direction: column; gap: 9px; margin-bottom: 18px; }
 .radio-card {
   display: flex;

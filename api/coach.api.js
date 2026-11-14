@@ -318,6 +318,44 @@ export async function updateWorkout(workoutId, updates) {
   );
 }
 
+// Coach approval without an in-app screenshot. Used for the WhatsApp proof
+// channel and for pending workouts the coach has verified in person.
+export async function approveWorkout(workoutId) {
+  if (!workoutId) throw new Error("MISSING_WORKOUT");
+  const client = requireSupabase();
+  const result = unwrap(
+    await client
+      .from("scheduled_workouts")
+      .update({
+        status: "completed",
+        verification_status: "verified",
+        verification_note: null
+      })
+      .eq("id", workoutId)
+      .in("status", ["pending", "completed"])
+      .select("*")
+      .single(),
+    "Unable to approve the workout"
+  );
+
+  const user = await client.auth.getUser();
+  const { data: traineeRow } = await client
+    .from("profiles")
+    .select("name_en, name_ar")
+    .eq("id", result.trainee_id)
+    .maybeSingle();
+
+  await client.from("activity_events").insert({
+    coach_id: user?.data?.user?.id || null,
+    trainee_id: result.trainee_id,
+    badge_type: "success",
+    text_en: `Coach approved ${traineeRow?.name_en || "a trainee"}'s workout.`,
+    text_ar: `اعتمدت المدربة تمرين المتدربة ${traineeRow?.name_ar || ""}.`
+  });
+
+  return result;
+}
+
 export async function createExercise({
   categoryId,
   nameEn,
