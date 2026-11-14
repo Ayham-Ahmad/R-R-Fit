@@ -143,8 +143,6 @@ const state = {
     traineeStatus: "all",
     exerciseSearch: "",
     exerciseCategory: "all",
-    traineeExerciseSearch: "",
-    traineeExerciseCategory: "all",
     userSearch: "",
     userRole: "all",
     builderSearch: "",
@@ -276,7 +274,6 @@ function navItems() {
   }
   return [
     { view: "schedule", label: "navMySchedule", icon: "calendar" },
-    { view: "exercises", label: "navExerciseLibrary", icon: "dumbbell" },
     { view: "progress", label: "navMyProgress", icon: "chart" },
     { view: "leaderboard", label: "navLeaderboard", icon: "trophy" },
     { view: "settings", label: "navSettings", icon: "settings" }
@@ -303,7 +300,6 @@ function viewMeta() {
     if (state.view === "settings") return { title: t("navSettings"), subtitle: t("coachSettingsSub") };
     return { title: t("navDashboard"), subtitle: t("coachWelcomeSub") };
   }
-  if (state.view === "exercises") return { title: t("navExerciseLibrary"), subtitle: t("exerciseLibrarySub") };
   if (state.view === "progress") return { title: t("navMyProgress"), subtitle: t("myProgressTitle") };
   if (state.view === "leaderboard") return { title: t("navLeaderboard"), subtitle: t("lbPageSubtitle") };
   if (state.view === "settings") return { title: t("navSettings"), subtitle: t("traineeSettingsSub") };
@@ -688,7 +684,6 @@ function renderPage() {
     if (state.view === "settings") return renderCoachSettings();
     return renderCoachDashboard();
   }
-  if (state.view === "exercises") return renderTraineeExercises();
   if (state.view === "progress") return renderTraineeProgress();
   if (state.view === "leaderboard") return renderTraineeLeaderboard();
   if (state.view === "settings") return renderTraineeSettings();
@@ -833,7 +828,7 @@ async function enterWorkspace(profile) {
     ? ["dashboard", "users", "settings"]
     : profile.role === "coach"
       ? ["dashboard", "trainees", "exercises", "leaderboard", "settings"]
-      : ["schedule", "exercises", "progress", "leaderboard", "settings"];
+      : ["schedule", "progress", "leaderboard", "settings"];
   state.view = saved && nav.includes(saved) ? saved : defaultView(profile.role);
   saveView(state.view);
   state.selectedTraineeId = null;
@@ -2008,68 +2003,6 @@ function renderCoachSettings() {
   `;
 }
 
-function filteredTraineeExercises() {
-  const exercises = state.trainee?.exercises || [];
-  const search = state.filters.traineeExerciseSearch.trim().toLowerCase();
-  return exercises.filter((exercise) => {
-    if (!exercise.isActive) return false;
-    const matchesCategory = state.filters.traineeExerciseCategory === "all" || exercise.categoryId === state.filters.traineeExerciseCategory;
-    const haystack = `${exercise.nameEn} ${exercise.nameAr} ${exercise.descEn} ${exercise.descAr}`.toLowerCase();
-    return matchesCategory && (!search || haystack.includes(search));
-  });
-}
-
-function renderTraineeExercises() {
-  const workspace = state.trainee;
-  if (!workspace) return "";
-  const exercises = filteredTraineeExercises();
-  const totalActive = (workspace.exercises || []).filter((exercise) => exercise.isActive).length;
-  return `
-    <div class="view-stack">
-      <section class="toolbar-card">
-        <div class="toolbar-main">
-          <div class="search-box">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input class="form-control" id="traineeExerciseSearch" data-filter="traineeExerciseSearch" value="${esc(state.filters.traineeExerciseSearch)}" placeholder="${t("searchExercisesPlaceholder")}" aria-label="${t("searchExercisesPlaceholder")}" />
-          </div>
-          <select class="form-control select-control" id="traineeExerciseCategoryFilter" data-filter="traineeExerciseCategory" aria-label="${t("filterByCategory")}">
-            <option value="all" ${state.filters.traineeExerciseCategory === "all" ? "selected" : ""}>${t("allCategories")}</option>
-            ${(workspace.categories || []).map((category) => `<option value="${category.id}" ${state.filters.traineeExerciseCategory === category.id ? "selected" : ""}>${esc(state.lang === "ar" ? category.ar : category.en)}</option>`).join("")}
-          </select>
-        </div>
-        <div class="toolbar-meta">${t("showingExercises")} <strong>${formatNumber(exercises.length)}</strong> ${t("ofExercises")} ${formatNumber(totalActive)}</div>
-      </section>
-
-      ${exercises.length ? `
-        <div class="exercise-grid">
-          ${exercises.map((exercise) => {
-            const thumbSrc = exercise.thumbUrl || exercise.mediaUrl;
-            const fallbackAttr = thumbSrc !== exercise.mediaUrl ? ` data-fallback-src="${esc(exercise.mediaUrl)}"` : "";
-            return `
-            <article class="exercise-card trainee-exercise-card" data-action="open-exercise-detail" data-exercise-id="${esc(exercise.id)}" role="button" tabindex="0" aria-label="${t("viewDetails")}">
-              <div class="exercise-media">
-                <img src="${esc(thumbSrc)}"${fallbackAttr} alt="" loading="lazy" />
-                <span class="badge badge-neutral exercise-category">${esc(categoryName(exercise.categoryId))}</span>
-              </div>
-              <div class="exercise-body">
-                <div class="exercise-title-row"><h3>${bi(exercise, "name")}</h3></div>
-                <p class="exercise-desc-clamp">${bi(exercise, "desc")}</p>
-                <div class="exercise-meta">
-                  <span>${formatNumber(exercise.defaultSets)} ${t("setsShort")}</span>
-                  <span>${state.lang === "ar" ? esc(exercise.repsAr) : esc(exercise.repsEn)}</span>
-                  <span>${state.lang === "ar" ? esc(exercise.restAr) : esc(exercise.restEn)}</span>
-                </div>
-                <span class="exercise-card-cta">${t("viewDetails")} ${icon("arrow")}</span>
-              </div>
-            </article>
-          `;
-          }).join("")}
-        </div>
-      ` : `<section class="card">${emptyState(t("noExercisesFoundTitle"), t("noExercisesFoundBody"))}</section>`}
-    </div>
-  `;
-}
-
 function openExerciseDetail(exercise) {
   if (!exercise) return;
   const suffix = state.lang === "ar" ? "Ar" : "En";
@@ -2226,15 +2159,27 @@ function renderTraineeDay(trainee, dayKey, today) {
 function renderTraineeWorkout(item) {
   const completed = item.status === "completed";
   const skipped = item.status === "skipped";
+  const exercise = getExercise(item.exerciseId);
+  const thumbSrc = exercise?.thumbUrl || exercise?.mediaUrl || "";
+  const fallbackAttr = thumbSrc && exercise?.mediaUrl && thumbSrc !== exercise.mediaUrl
+    ? ` data-fallback-src="${esc(exercise.mediaUrl)}"`
+    : "";
+  const media = thumbSrc
+    ? `<span class="trainee-workout-thumb"><img src="${esc(thumbSrc)}"${fallbackAttr} alt="" loading="lazy" /></span>`
+    : `<span class="workout-mini-icon">${icon("dumbbell")}</span>`;
+  const copy = `
+    <span class="trainee-workout-copy">
+      <strong>${getExerciseName(item.exerciseId)}</strong>
+      <span>${formatNumber(item.sets)} × ${state.lang === "ar" ? esc(item.repsAr) : esc(item.repsEn)} · ${state.lang === "ar" ? esc(item.restAr) : esc(item.restEn)}</span>
+      ${item.notesEn || item.notesAr ? `<small>${bi(item, "notes")}</small>` : ""}
+    </span>`;
+  const topContent = exercise
+    ? `<button class="trainee-workout-open" type="button" data-action="open-exercise-detail" data-exercise-id="${esc(exercise.id)}" aria-label="${t("viewDetails")}: ${getExerciseName(item.exerciseId)}">${media}${copy}</button>`
+    : `<div class="trainee-workout-open is-static">${media}${copy}</div>`;
   return `
     <article class="trainee-workout ${completed ? "completed" : ""} ${skipped ? "skipped" : ""}">
       <div class="trainee-workout-top">
-        <div class="workout-mini-icon">${icon("dumbbell")}</div>
-        <div class="trainee-workout-copy">
-          <strong>${getExerciseName(item.exerciseId)}</strong>
-          <span>${formatNumber(item.sets)} × ${state.lang === "ar" ? esc(item.repsAr) : esc(item.repsEn)} · ${state.lang === "ar" ? esc(item.restAr) : esc(item.restEn)}</span>
-          ${item.notesEn || item.notesAr ? `<small>${bi(item, "notes")}</small>` : ""}
-        </div>
+        ${topContent}
         ${completed ? verificationBadge(item.verificationStatus) : skipped ? `<span class="badge badge-neutral">${t("skippedLabel")}</span>` : `<span class="badge badge-info">${t("pendingLabel")}</span>`}
       </div>
       ${completed && (item.proofWeights || item.proofSummaryEn) ? `
@@ -3719,15 +3664,6 @@ function bindEvents() {
       }
       closeModal();
     }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    const card = event.target instanceof Element ? event.target.closest('[data-action="open-exercise-detail"]') : null;
-    if (!card) return;
-    event.preventDefault();
-    const exercise = getExercise(card.dataset.exerciseId);
-    if (exercise) openExerciseDetail(exercise);
   });
 
   document.addEventListener("error", (event) => {

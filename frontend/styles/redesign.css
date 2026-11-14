@@ -1317,7 +1317,7 @@ html[dir="rtl"] .switch input:checked + span::after {
 }
 
 .trainee-workout-actions {
-  margin-inline-start: 34px;
+  margin-inline-start: 70px;
 }
 
 .coach-portrait {

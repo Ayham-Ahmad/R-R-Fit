@@ -1,6 +1,6 @@
 # R&R Fit
 
-Private, coach-led fitness coaching for women — weekly programming, proof-reviewed workouts, progress tracking, and a bilingual exercise library with animated demos.
+Private, coach-led fitness coaching for women — weekly programming, proof-reviewed workouts, progress tracking, and animated exercise demos right in the weekly schedule.
 
 Live: **https://r-r-fit.pages.dev/**
 
@@ -12,8 +12,8 @@ English and Arabic out of the box, with full RTL support and per-user language/t
 
 ### Trainee
 - Weekly schedule with sets, reps, rest, and coach notes
+- Static exercise previews on each scheduled workout; tap one to open the animated demo with full details
 - Workout check-in with proof screenshots (compressed before upload)
-- Exercise library: searchable grid with static previews and an animated demo in the detail view
 - Progress, streaks, and weekly scoring
 - Leaderboard built on verified sessions
 - Profile, appearance, and password settings
@@ -141,8 +141,9 @@ docs/                    Local notes (git-ignored)
 
 Each exercise has one animated SVG in `frontend/public/exercises/ex_exN.svg` using inline SMIL (`<animate>`, `viewBox="0 0 240 145"`, `width="100%" height="100%"`).
 
-- The library **grid** loads the static poster from `thumbs/ex_exN.svg`.
-- The **detail modal** loads the animated file.
+- The trainee **My Schedule** view loads the static poster from `thumbs/ex_exN.svg` inside each workout card.
+- Tapping a workout card opens the **detail modal** with the animated file and full exercise details.
+- The full exercise library is a **coach-only** management view (create, edit, archive, restore, upload media).
 - `scripts/make_thumbs.mjs` copies each animation with `<animate>`/`<set>` tags stripped.
 - Thumbnails are generated automatically by `npm run build`; use `npm run thumbs` after editing an animation without a full build.
 - Supabase `exercises.media_path` must point at `exercises/ex_exN.svg`. Paths such as `assets/...`, `data:...`, or Storage URLs bypass the bundled files.
