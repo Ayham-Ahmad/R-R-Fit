@@ -83,21 +83,11 @@ export async function loadTraineeWorkspace() {
 
 export async function submitWorkoutProof({
   workoutId,
-  weights,
-  rpe,
-  summaryEn,
-  summaryAr,
+  comment,
   screenshotBlob = null
 }) {
   if (!workoutId) throw new Error("MISSING_WORKOUT");
-  const cleanWeights = String(weights || "").trim();
-  const cleanSummary = String(summaryEn || "").trim();
-  const rpeNumber = Number(rpe);
-  if (cleanWeights.length < 2) throw new Error("PROOF_WEIGHTS_REQUIRED");
-  if (cleanSummary.length < 2) throw new Error("PROOF_SUMMARY_REQUIRED");
-  if (!Number.isInteger(rpeNumber) || rpeNumber < 1 || rpeNumber > 10) {
-    throw new Error("PROOF_RPE_INVALID");
-  }
+  const cleanComment = String(comment || "").trim();
 
   const client = requireSupabase();
   const user = await getAuthUser();
@@ -124,10 +114,7 @@ export async function submitWorkoutProof({
         .from("scheduled_workouts")
         .update({
           status: "completed",
-          proof_weights: cleanWeights,
-          proof_rpe: rpeNumber,
-          proof_summary_en: cleanSummary,
-          proof_summary_ar: summaryAr || null,
+          proof_summary_en: cleanComment || null,
           proof_screenshot_path: screenshotPath,
           verification_status: "pending_review",
           completed_at: new Date().toISOString()

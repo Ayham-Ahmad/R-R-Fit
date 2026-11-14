@@ -458,7 +458,7 @@ function errorMessage(error) {
   if (/Invalid login credentials/i.test(code)) return t("errInvalidCredentials");
   if (/JWT expired|session.*expired/i.test(code)) return t("errSessionExpired");
   if (/Finalized workout results|Completed workouts cannot be deleted|Completed or skipped workouts/i.test(code)) return t("errWorkoutLocked");
-  if (/Proof weights, summary, effort, and screenshot are required/i.test(code)) return t("errProofFileRequired");
+  if (/Proof weights, summary, effort, and screenshot are required|Proof screenshot is required/i.test(code)) return t("errProofFileRequired");
   if (/Failed to send a request|FunctionsFetchError|Failed to fetch|NetworkError/i.test(code)) return t("errNetwork");
   if (/admin-users|Edge Function/i.test(code)) return t("errEdge");
   if (/duplicate key|already exists/i.test(code)) return t("errEmailExists");
@@ -2189,11 +2189,9 @@ function renderTraineeWorkout(item) {
         ${topContent}
         ${completed ? verificationBadge(item.verificationStatus) : skipped ? `<span class="badge badge-neutral">${t("skippedLabel")}</span>` : `<span class="badge badge-info">${t("pendingLabel")}</span>`}
       </div>
-      ${completed && (item.proofWeights || item.proofSummaryEn) ? `
+      ${completed && item.verificationNote ? `
         <div class="proof-summary">
-          <span>${t("loggedWeightLabel")}: <strong>${esc(item.proofWeights || "-")}</strong></span>
-          <span>${t("rpeLabel")}: <strong>${item.proofRpe || "-"}</strong></span>
-          ${item.verificationNote ? `<span class="proof-note">${t("coachNoteLabel")}: ${esc(item.verificationNote)}</span>` : ""}
+          <span class="proof-note">${t("coachNoteLabel")}: ${esc(item.verificationNote)}</span>
         </div>
       ` : ""}
       ${!completed && !skipped ? `
@@ -2262,7 +2260,7 @@ function renderTraineeProgress() {
               <span class="proof-day">${dayShort(item.dayKey)}</span>
               <div class="activity-copy">
                 <strong>${getExerciseName(item.exerciseId)}</strong>
-                <span>${item.status === "skipped" ? t("skippedLabel") : `${esc(item.proofWeights || "-")} · ${t("rpeLabel")} ${item.proofRpe || "-"} · ${formatDateTime(item.completedAt)}`}</span>
+                <span>${item.status === "skipped" ? t("skippedLabel") : formatDateTime(item.completedAt)}</span>
               </div>
               ${item.status === "skipped" ? `<span class="badge badge-neutral">${t("skippedLabel")}</span>` : verificationBadge(item.verificationStatus)}
             </div>
@@ -2766,26 +2764,14 @@ function openCompleteWorkoutModal(workoutId) {
           <p>${t("proofGuide")}</p>
         </div>
         <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label" for="proofWeights">${t("weightsLabel")}</label>
-            <input class="form-control" id="proofWeights" name="weights" placeholder="${t("weightsPlaceholder")}" required minlength="2" />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="proofRpe">${t("rpeLabel")}</label>
-            <input class="form-control" id="proofRpe" name="rpe" type="number" min="1" max="10" value="7" required />
-          </div>
-          <div class="form-group span-full">
-            <label class="form-label" for="proofSummaryEn">${t("summaryEnLabel")}</label>
-            <textarea class="form-control ltr-field" id="proofSummaryEn" name="summaryEn" rows="3" placeholder="${t("summaryPlaceholder")}" required minlength="2"></textarea>
-          </div>
-          <div class="form-group span-full">
-            <label class="form-label" for="proofSummaryAr">${t("summaryArLabel")}</label>
-            <textarea class="form-control" id="proofSummaryAr" name="summaryAr" rows="3" placeholder="${t("summaryPlaceholder")}"></textarea>
-          </div>
           <div class="form-group span-full">
             <label class="form-label" for="proofFile">${t("screenshotLabel")}</label>
             <input class="form-control file-input" id="proofFile" type="file" accept="image/*" required />
             <p class="form-hint" id="proofFileName">${t("screenshotHint")}</p>
+          </div>
+          <div class="form-group span-full">
+            <label class="form-label" for="proofComment">${t("commentOptionalLabel")}</label>
+            <textarea class="form-control" id="proofComment" name="comment" rows="3" placeholder="${t("commentPlaceholder")}"></textarea>
           </div>
         </div>
       </div>
@@ -2862,18 +2848,17 @@ async function openReviewProofModal(traineeId, workoutId) {
             <div class="review-details">
               <div class="detail-grid">
                 <div class="detail-item"><span>${t("exerciseLabel")}</span><strong>${getExerciseName(log.exerciseId)}</strong></div>
-                <div class="detail-item"><span>${t("weightsLabel")}</span><strong>${esc(log.weights || "-")}</strong></div>
-                <div class="detail-item"><span>${t("rpeLabel")}</span><strong>${log.rpe || "-"}</strong></div>
+                ${log.weights ? `<div class="detail-item"><span>${t("weightsLabel")}</span><strong>${esc(log.weights)}</strong></div>` : ""}
+                ${log.rpe ? `<div class="detail-item"><span>${t("rpeLabel")}</span><strong>${log.rpe}</strong></div>` : ""}
                 <div class="detail-item"><span>${t("completedAtLabel")}</span><strong>${formatDateTime(log.completedAt)}</strong></div>
               </div>
-              <div class="proof-copy-block">
-                <span>${t("summaryEnLabel")}</span>
-                <p class="ltr-field">${esc(log.summaryEn || "-")}</p>
-              </div>
-              <div class="proof-copy-block">
-                <span>${t("summaryArLabel")}</span>
-                <p>${esc(log.summaryAr || "-")}</p>
-              </div>
+              ${(log.summaryEn || log.summaryAr) ? `
+                <div class="proof-copy-block">
+                  <span>${t("traineeCommentLabel")}</span>
+                  ${log.summaryEn ? `<p class="ltr-field">${esc(log.summaryEn)}</p>` : ""}
+                  ${log.summaryAr ? `<p>${esc(log.summaryAr)}</p>` : ""}
+                </div>
+              ` : ""}
               <div class="form-group">
                 <label class="form-label" for="reviewNote">${t("reviewNoteLabel")}</label>
                 <textarea class="form-control" id="reviewNote" rows="3" placeholder="${t("reviewNotePlaceholder")}">${esc(log.verificationNote || "")}</textarea>
@@ -3169,10 +3154,7 @@ async function handleFormSubmit(form) {
       const screenshotBlob = await compressProofImage(state.proofFile);
       await submitWorkoutProof({
         workoutId: value("workoutId"),
-        weights: value("weights"),
-        rpe: Number(value("rpe")),
-        summaryEn: value("summaryEn"),
-        summaryAr: value("summaryAr"),
+        comment: value("comment"),
         screenshotBlob
       });
       closeModal();

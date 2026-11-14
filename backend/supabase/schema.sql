@@ -493,11 +493,8 @@ begin
   new.verified_at = null;
 
   if new.status = 'completed' then
-    if new.proof_screenshot_path is null
-       or length(btrim(coalesce(new.proof_weights, ''))) < 2
-       or length(btrim(coalesce(new.proof_summary_en, ''))) < 2
-       or new.proof_rpe is null then
-      raise exception 'Proof weights, summary, effort, and screenshot are required';
+    if new.proof_screenshot_path is null then
+      raise exception 'Proof screenshot is required';
     end if;
     new.verification_status = 'pending_review';
     new.completed_at = coalesce(new.completed_at, now());
