@@ -3085,7 +3085,7 @@ async function handleFormSubmit(form) {
         nameEn: value("newExerciseNameEn"),
         nameAr: value("newExerciseNameAr"),
         descEn: value("newExerciseDescEn"),
-        descAr: value("newExerciseDescAr") + (value("animationCode") ? "\n\n[ANIMATION_CODE]\n" + value("animationCode") : ""),
+        descAr: value("newExerciseDescAr"),
         defaultSets: Number(value("defaultSets")) || 3,
         repsEn: value("newExerciseRepsEn"),
         repsAr: value("newExerciseRepsAr"),
