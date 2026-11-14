@@ -1809,32 +1809,31 @@ function renderCoachExercises() {
       </section>
 
       ${exercises.length ? `
-        <div class="exercise-grid">
-          ${exercises.map((exercise) => `
-            <article class="exercise-card">
-              <div class="exercise-media">
-                <img src="${esc(exercise.mediaUrl)}" alt="" loading="lazy" />
-                <span class="badge badge-neutral exercise-category">${esc(categoryName(exercise.categoryId))}</span>
-              </div>
-              <div class="exercise-body">
-                <div class="exercise-title-row">
-                  <h3>${bi(exercise, "name")}</h3>
-                  <div class="exercise-card-actions">
-                    <button class="icon-btn" type="button" data-action="edit-exercise" data-exercise-id="${exercise.id}" title="${t("editBtn")}" aria-label="${t("editBtn")}">${icon("settings")}</button>
-                    ${exercise.isActive
-                      ? `<button class="icon-btn danger" type="button" data-action="archive-exercise" data-exercise-id="${exercise.id}" title="${t("archiveBtn")}" aria-label="${t("archiveBtn")}">${icon("lock")}</button>`
-                      : `<button class="icon-btn" type="button" data-action="restore-exercise" data-exercise-id="${exercise.id}" title="${t("restoreBtn") || "Restore"}" aria-label="${t("restoreBtn") || "Restore"}">${icon("unlock")}</button>`}
-                  </div>
-                </div>
-                <p>${bi(exercise, "desc")}</p>
-                <div class="exercise-meta">
-                  <span>${formatNumber(exercise.defaultSets)} ${t("setsShort")}</span>
-                  <span>${state.lang === "ar" ? esc(exercise.repsAr) : esc(exercise.repsEn)}</span>
-                  <span>${state.lang === "ar" ? esc(exercise.restAr) : esc(exercise.restEn)}</span>
-                </div>
+        <div class="coach-exercise-list">
+          ${exercises.map((exercise) => {
+            const thumbSrc = exercise.thumbUrl || exercise.mediaUrl;
+            const fallbackAttr = thumbSrc && exercise.mediaUrl && thumbSrc !== exercise.mediaUrl ? ` data-fallback-src="${esc(exercise.mediaUrl)}"` : "";
+            return `
+            <article class="coach-exercise-row ${exercise.isActive ? "" : "is-archived"}">
+              <button class="coach-exercise-open" type="button" data-action="open-exercise-detail" data-exercise-id="${esc(exercise.id)}" aria-label="${t("viewDetails")}: ${bi(exercise, "name")}">
+                <span class="coach-exercise-thumb">
+                  <img src="${esc(thumbSrc)}"${fallbackAttr} alt="" loading="lazy" />
+                </span>
+                <span class="coach-exercise-copy">
+                  <strong>${bi(exercise, "name")}</strong>
+                  <span class="coach-exercise-meta">${esc(categoryName(exercise.categoryId))} · ${formatNumber(exercise.defaultSets)} ${t("setsShort")} · ${state.lang === "ar" ? esc(exercise.repsAr) : esc(exercise.repsEn)} · ${state.lang === "ar" ? esc(exercise.restAr) : esc(exercise.restEn)}</span>
+                  ${exercise.descEn || exercise.descAr ? `<span class="coach-exercise-desc">${bi(exercise, "desc")}</span>` : ""}
+                </span>
+              </button>
+              <div class="exercise-card-actions">
+                <button class="icon-btn" type="button" data-action="edit-exercise" data-exercise-id="${exercise.id}" title="${t("editBtn")}" aria-label="${t("editBtn")}">${icon("settings")}</button>
+                ${exercise.isActive
+                  ? `<button class="icon-btn danger" type="button" data-action="archive-exercise" data-exercise-id="${exercise.id}" title="${t("archiveBtn")}" aria-label="${t("archiveBtn")}">${icon("lock")}</button>`
+                  : `<button class="icon-btn" type="button" data-action="restore-exercise" data-exercise-id="${exercise.id}" title="${t("restoreBtn") || "Restore"}" aria-label="${t("restoreBtn") || "Restore"}">${icon("unlock")}</button>`}
               </div>
             </article>
-          `).join("")}
+          `;
+          }).join("")}
         </div>
       ` : `<section class="card">${emptyState(t("noExercisesFoundTitle"), t("noExercisesFoundBody"), `<button class="btn btn-primary" type="button" data-action="open-create-exercise">${t("createExerciseBtn")}</button>`)}</section>`}
     </div>
@@ -2001,6 +2000,14 @@ function renderCoachSettings() {
       </section>
     </div>
   `;
+}
+
+function exercisePreviewMarkup(exercise) {
+  if (!exercise) return "";
+  return `
+    <div class="exercise-detail-media">
+      <img src="${esc(exercise.mediaUrl)}" alt="${bi(exercise, "name")}" />
+    </div>`;
 }
 
 function openExerciseDetail(exercise) {
@@ -2602,6 +2609,7 @@ function openAddWorkoutModal(traineeId, dayKey) {
         <input type="hidden" name="traineeId" value="${trainee.id}" />
         <input type="hidden" name="dayKey" value="${dayKey}" />
         ${exercises.length ? `
+          <div class="exercise-preview-block" id="addWorkoutPreview" hidden></div>
           <div class="form-group">
             <label class="form-label" for="addExerciseSelect">${t("exerciseLabel")}</label>
             <select class="form-control" id="addExerciseSelect" name="exerciseId" required>
@@ -2624,11 +2632,13 @@ function openEditWorkoutModal(workoutId) {
   const context = findWorkoutContext(workoutId);
   if (!context) return showToast(t("errGeneric"), "error");
   const { item, dayKey } = context;
+  const exercise = getExercise(item.exerciseId);
   openModal(`
     <form data-form="edit-workout">
       ${modalHead(t("editWorkoutTitle"), `${getExerciseName(item.exerciseId)} · ${dayName(dayKey)}`)}
       <div class="modal-body">
         <input type="hidden" name="workoutId" value="${item.uid}" />
+        ${exercise ? `<div class="exercise-preview-block">${exercisePreviewMarkup(exercise)}</div>` : ""}
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label" for="workoutSets">${t("setsLabel")}</label>
@@ -3517,6 +3527,7 @@ function bindEvents() {
           <input type="hidden" name="exerciseId" value="${exercise.id}" />
           ${modalHead(t("editExerciseTitle") || "Edit Exercise", "")}
           <div class="modal-body">
+            <div class="exercise-preview-block">${exercisePreviewMarkup(exercise)}</div>
             <div class="form-grid">
               ${inputField("exerciseNameEn", t("nameEnLabel"), exercise.nameEn, { required: true })}
               ${inputField("exerciseNameAr", t("nameArLabel"), exercise.nameAr, { required: true })}
@@ -3616,6 +3627,14 @@ function bindEvents() {
       } catch (error) {
         showToast(errorMessage(error), "error");
       }
+      return;
+    }
+    if (target.id === "addExerciseSelect") {
+      const preview = document.getElementById("addWorkoutPreview");
+      if (!preview) return;
+      const exercise = getExercise(target.value);
+      preview.innerHTML = exercise ? exercisePreviewMarkup(exercise) : "";
+      preview.hidden = !exercise;
       return;
     }
     if (target.id === "proofFile") {
