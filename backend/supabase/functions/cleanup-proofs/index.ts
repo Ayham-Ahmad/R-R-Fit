@@ -74,24 +74,40 @@ function collectSecretKeys(): string[] {
   return [...keys];
 }
 
-function isAuthorized(request: Request): boolean {
-  const secretHeader = (request.headers.get("x-cleanup-secret") || "").trim();
-  if (CLEANUP_SECRET && secretHeader && secretHeader === CLEANUP_SECRET) {
-    return true;
+function authorize(request: Request): { ok: boolean; reason?: string } {
+  const provided = (request.headers.get("x-cleanup-secret") || "").trim();
+
+  // Preferred path: a dedicated shared secret. Works independently of API
+  // key formats, key rotation, and the platform JWT check (when verify_jwt
+  // is disabled for this function).
+  if (CLEANUP_SECRET) {
+    if (provided && provided === CLEANUP_SECRET) return { ok: true };
+  } else if (provided) {
+    return { ok: false, reason: "CLEANUP_SECRET_NOT_CONFIGURED" };
   }
 
+  // Fallback paths: service role API keys.
   // New sb_secret_... keys must be sent on `apikey`; legacy service_role
   // JWTs are sent on `Authorization: Bearer`. Accept either header.
   const apiKey = (request.headers.get("apikey") || "").trim();
   const authorization = request.headers.get("authorization") || "";
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
 
-  for (const key of collectSecretKeys()) {
-    if (apiKey && apiKey === key) return true;
-    if (token && token === key) return true;
+  if (!apiKey && !token) {
+    return {
+      ok: false,
+      reason: CLEANUP_SECRET ? "MISSING_CREDENTIALS" : "CLEANUP_SECRET_NOT_CONFIGURED"
+    };
   }
 
-  return decodeJwtRole(token) === "service_role";
+  for (const key of collectSecretKeys()) {
+    if (apiKey && apiKey === key) return { ok: true };
+    if (token && token === key) return { ok: true };
+  }
+
+  if (decodeJwtRole(token) === "service_role") return { ok: true };
+
+  return { ok: false, reason: "BAD_CREDENTIALS" };
 }
 
 async function runCleanup() {
@@ -163,8 +179,15 @@ Deno.serve(async (request) => {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     return json(500, { error: "NOT_CONFIGURED", message: "Supabase service credentials are missing." });
   }
-  if (!isAuthorized(request)) {
-    return json(401, { error: "UNAUTHORIZED" });
+  const auth = authorize(request);
+  console.log("cleanup-proofs auth", {
+    ok: auth.ok,
+    reason: auth.reason || null,
+    hasCleanupSecret: Boolean(CLEANUP_SECRET),
+    secretKeyCount: collectSecretKeys().length
+  });
+  if (!auth.ok) {
+    return json(401, { error: "UNAUTHORIZED", reason: auth.reason || "UNKNOWN" });
   }
 
   try {
