@@ -2192,18 +2192,27 @@ function renderTraineeWorkout(item) {
     : `<span class="workout-mini-icon">${icon("dumbbell")}</span>`;
   const copy = `
     <span class="trainee-workout-copy">
-      <strong>${getExerciseName(item.exerciseId)}</strong>
-      <span>${formatNumber(item.sets)} × ${state.lang === "ar" ? esc(item.repsAr) : esc(item.repsEn)} · ${state.lang === "ar" ? esc(item.restAr) : esc(item.restEn)}</span>
-      ${item.notesEn || item.notesAr ? `<small>${bi(item, "notes")}</small>` : ""}
+      <strong class="trainee-workout-name">${getExerciseName(item.exerciseId)}</strong>
+      <span class="trainee-workout-meta">
+        <span>${formatNumber(item.sets)} × ${state.lang === "ar" ? esc(item.repsAr) : esc(item.repsEn)}</span>
+        <span class="meta-sep" aria-hidden="true">·</span>
+        <span>${state.lang === "ar" ? esc(item.restAr) : esc(item.restEn)}</span>
+      </span>
+      ${item.notesEn || item.notesAr ? `<small class="trainee-workout-notes">${bi(item, "notes")}</small>` : ""}
     </span>`;
   const topContent = exercise
     ? `<button class="trainee-workout-open" type="button" data-action="open-exercise-detail" data-exercise-id="${esc(exercise.id)}" aria-label="${t("viewDetails")}: ${getExerciseName(item.exerciseId)}">${media}${copy}</button>`
     : `<div class="trainee-workout-open is-static">${media}${copy}</div>`;
+  const statusBadge = completed
+    ? verificationBadge(item.verificationStatus)
+    : skipped
+      ? `<span class="badge badge-neutral">${t("skippedLabel")}</span>`
+      : `<span class="badge badge-info">${t("pendingLabel")}</span>`;
   return `
     <article class="trainee-workout ${completed ? "completed" : ""} ${skipped ? "skipped" : ""}">
       <div class="trainee-workout-top">
         ${topContent}
-        ${completed ? verificationBadge(item.verificationStatus) : skipped ? `<span class="badge badge-neutral">${t("skippedLabel")}</span>` : `<span class="badge badge-info">${t("pendingLabel")}</span>`}
+        <span class="trainee-workout-status">${statusBadge}</span>
       </div>
       ${completed && item.verificationNote ? `
         <div class="proof-summary">
