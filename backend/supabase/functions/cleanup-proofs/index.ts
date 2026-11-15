@@ -51,15 +51,46 @@ function decodeJwtRole(token: string): string {
   }
 }
 
+function collectSecretKeys(): string[] {
+  const keys = new Set<string>();
+  const legacy = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+    || Deno.env.get("SERVICE_ROLE_KEY")
+    || "").trim();
+  if (legacy) keys.add(legacy);
+
+  const raw = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        for (const value of Object.values(parsed)) {
+          if (typeof value === "string" && value.trim()) keys.add(value.trim());
+        }
+      }
+    } catch (error) {
+      console.error("Could not parse SUPABASE_SECRET_KEYS", error);
+    }
+  }
+  return [...keys];
+}
+
 function isAuthorized(request: Request): boolean {
-  const secretHeader = request.headers.get("x-cleanup-secret") || "";
+  const secretHeader = (request.headers.get("x-cleanup-secret") || "").trim();
   if (CLEANUP_SECRET && secretHeader && secretHeader === CLEANUP_SECRET) {
     return true;
   }
+
+  // New sb_secret_... keys must be sent on `apikey`; legacy service_role
+  // JWTs are sent on `Authorization: Bearer`. Accept either header.
+  const apiKey = (request.headers.get("apikey") || "").trim();
   const authorization = request.headers.get("authorization") || "";
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return false;
-  if (SERVICE_ROLE_KEY && token === SERVICE_ROLE_KEY) return true;
+
+  for (const key of collectSecretKeys()) {
+    if (apiKey && apiKey === key) return true;
+    if (token && token === key) return true;
+  }
+
   return decodeJwtRole(token) === "service_role";
 }
 
