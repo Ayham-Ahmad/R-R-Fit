@@ -46,6 +46,7 @@ REQUIRED_TABLES = (
     "scheduled_workouts",
     "activity_events",
     "leaderboard_previous_winners",
+    "coach_certificates",
 )
 
 

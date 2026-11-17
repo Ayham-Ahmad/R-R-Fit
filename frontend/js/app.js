@@ -26,21 +26,27 @@ import {
   updateAdminProfile
 } from "../../api/admin.api.js";
 import {
+  addCoachCertificate,
   addWorkoutToDay,
   approveWorkout,
   createExercise,
+  deleteCoachCertificate,
   deleteExercise,
   loadCoachWorkspace,
   removeWorkout,
+  reorderCoachCertificates,
   restoreExercise,
+  saveCoachAbout,
   savePlatformSettings,
   setRestDay,
   toggleTraineeAccess,
+  updateCoachCertificate,
   updateExercise,
   updateTraineeRecurrence,
   updateWorkout
 } from "../../api/coach.api.js";
 import {
+  getTraineeCoachProfile,
   loadTraineeWorkspace,
   markWorkoutSkipped,
   saveTraineeProfile,
@@ -55,7 +61,7 @@ import {
   saveLeaderboardSettings,
   startNewLeaderboardWeek
 } from "../../api/leaderboard.api.js";
-import { compressProofImage, formatBytes, toShareJpeg } from "./compression.js";
+import { compressCertificateImage, compressProofImage, formatBytes, toShareJpeg } from "./compression.js";
 
 const env = import.meta.env || {};
 const LANG_KEY = "rr_fit_language";
@@ -73,6 +79,10 @@ const DEFAULT_SETTINGS = {
   coachEmail: "",
   coachPhone: "",
   whatsappPhone: "",
+  coachBioEn: "",
+  coachBioAr: "",
+  coachAvatarPath: null,
+  coachLinks: [],
   leaderboardEnabled: true,
   leaderboardPublished: true,
   strictVerification: true,
@@ -159,6 +169,14 @@ const state = {
   proofCompressing: false,
   proofWorkoutId: null,
   modalFile: null,
+  aboutAvatarFile: null,
+  aboutAvatarPreviewUrl: null,
+  aboutAvatarRemoved: false,
+  certificateFile: null,
+  certificatePreviewUrl: null,
+  coachProfile: null,
+  coachProfileCertificates: [],
+  modalToken: 0,
   confirmAction: null,
   reviewProof: null,
   loading: true,
@@ -275,6 +293,7 @@ function navItems() {
       { view: "dashboard", label: "navDashboard", icon: "dashboard" },
       { view: "trainees", label: "navTrainees", icon: "users" },
       { view: "exercises", label: "navExercises", icon: "dumbbell" },
+      { view: "about", label: "navAbout", icon: "about" },
       { view: "leaderboard", label: "navLeaderboardMgmt", icon: "trophy" },
       { view: "settings", label: "navSettings", icon: "settings" }
     ];
@@ -303,6 +322,7 @@ function viewMeta() {
   if (role === "coach") {
     if (state.view === "trainees") return { title: t("navTrainees"), subtitle: t("coachTraineesSub") };
     if (state.view === "exercises") return { title: t("navExercises"), subtitle: t("coachExercisesSub") };
+    if (state.view === "about") return { title: t("navAbout"), subtitle: t("coachAboutSub") };
     if (state.view === "leaderboard") return { title: t("navLeaderboardMgmt"), subtitle: t("lbMgmtSubtitle") };
     if (state.view === "settings") return { title: t("navSettings"), subtitle: t("coachSettingsSub") };
     return { title: t("navDashboard"), subtitle: t("coachWelcomeSub") };
@@ -331,6 +351,15 @@ function icon(name) {
     share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.7 6.8-3.4M8.6 13.3l6.8 3.4"/>',
     key: '<circle cx="7.5" cy="15.5" r="3.5"/><path d="m10.5 12.5 8-8M16 7l2 2M18 5l2 2"/>',
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    about: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5-4 4-2-2-4 4"/>',
+    trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+    external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
+    up: '<path d="m6 15 6-6 6 6"/>',
+    down: '<path d="m6 9 6 6 6-6"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
   };
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.dashboard}</svg>`;
@@ -459,6 +488,14 @@ function errorMessage(error) {
     INVALID_ACTION: "errGeneric",
     ADMIN_REQUIRED: "errAdminRequired",
     BODY_TOO_LARGE: "errBodyTooLarge",
+    AVATAR_FILE_TYPE: "errAvatarFileType",
+    AVATAR_FILE_TOO_LARGE: "errAvatarFileSize",
+    CERTIFICATE_FILE_TYPE: "errCertificateFileType",
+    CERTIFICATE_FILE_TOO_LARGE: "errCertificateFileSize",
+    CERTIFICATE_FILE_REQUIRED: "errCertificateFileRequired",
+    CERTIFICATE_TITLE_REQUIRED: "errCertificateTitle",
+    CERTIFICATE_NOT_FOUND: "errCertificateNotFound",
+    LINK_URL_INVALID: "errLinkUrl",
     TARGET_INVALID: "errTargetNotFound",
     TARGET_NOT_FOUND: "errTargetNotFound",
     TARGET_LOOKUP_FAILED: "errResetPasswordFailed",
@@ -690,6 +727,7 @@ function renderPage() {
   if (state.profile.role === "coach") {
     if (state.view === "trainees") return renderCoachTrainees();
     if (state.view === "exercises") return renderCoachExercises();
+    if (state.view === "about") return renderCoachAbout();
     if (state.view === "leaderboard") return renderLeaderboardManagement();
     if (state.view === "settings") return renderCoachSettings();
     return renderCoachDashboard();
@@ -837,7 +875,7 @@ async function enterWorkspace(profile) {
   const nav = profile.role === "admin"
     ? ["dashboard", "users", "settings"]
     : profile.role === "coach"
-      ? ["dashboard", "trainees", "exercises", "leaderboard", "settings"]
+      ? ["dashboard", "trainees", "exercises", "about", "leaderboard", "settings"]
       : ["schedule", "progress", "leaderboard", "settings"];
   state.view = saved && nav.includes(saved) ? saved : defaultView(profile.role);
   saveView(state.view);
@@ -2018,6 +2056,268 @@ function renderCoachSettings() {
   `;
 }
 
+function aboutLinkRowMarkup(link = {}) {
+  return `
+    <div class="about-link-row" data-about-link-row>
+      <input class="form-control" name="linkName" value="${esc(link.name || "")}" placeholder="${t("linkNamePlaceholder")}" aria-label="${t("linkNameLabel")}" />
+      <input class="form-control ltr-field" name="linkUrl" value="${esc(link.url || "")}" placeholder="${t("linkUrlPlaceholder")}" aria-label="${t("linkUrlLabel")}" inputmode="url" />
+      <div class="about-link-tools">
+        <button class="icon-btn" type="button" data-action="move-about-link" data-dir="-1" title="${t("moveUpLabel")}" aria-label="${t("moveUpLabel")}">${icon("up")}</button>
+        <button class="icon-btn" type="button" data-action="move-about-link" data-dir="1" title="${t("moveDownLabel")}" aria-label="${t("moveDownLabel")}">${icon("down")}</button>
+        <button class="icon-btn danger" type="button" data-action="remove-about-link" title="${t("removeLinkLabel")}" aria-label="${t("removeLinkLabel")}">${icon("trash")}</button>
+      </div>
+    </div>`;
+}
+
+function certificateThumbMarkup(certificate) {
+  if (!certificate.isPdf && certificate.url) {
+    return `<span class="certificate-thumb"><img src="${esc(certificate.url)}" alt="" loading="lazy" /></span>`;
+  }
+  if (certificate.isPdf) {
+    return `<span class="certificate-thumb is-pdf">${icon("file")}<span>PDF</span></span>`;
+  }
+  return `<span class="certificate-thumb is-pdf">${icon("image")}</span>`;
+}
+
+function renderCoachCertificateCard(certificate, index, total) {
+  return `
+    <article class="certificate-card">
+      ${certificateThumbMarkup(certificate)}
+      <div class="certificate-copy">
+        <strong>${bi(certificate, "title")}</strong>
+        ${certificate.descEn || certificate.descAr ? `<p>${bi(certificate, "desc")}</p>` : ""}
+        <span class="certificate-file-name">${esc(certificate.fileName)}</span>
+      </div>
+      <div class="certificate-tools">
+        <button class="icon-btn" type="button" data-action="move-certificate" data-cert-id="${esc(certificate.id)}" data-dir="-1" ${index === 0 ? "disabled" : ""} title="${t("moveUpLabel")}" aria-label="${t("moveUpLabel")}">${icon("up")}</button>
+        <button class="icon-btn" type="button" data-action="move-certificate" data-cert-id="${esc(certificate.id)}" data-dir="1" ${index === total - 1 ? "disabled" : ""} title="${t("moveDownLabel")}" aria-label="${t("moveDownLabel")}">${icon("down")}</button>
+        <button class="icon-btn" type="button" data-action="edit-certificate" data-cert-id="${esc(certificate.id)}" title="${t("editBtn")}" aria-label="${t("editBtn")}">${icon("edit")}</button>
+        <button class="icon-btn danger" type="button" data-action="delete-certificate" data-cert-id="${esc(certificate.id)}" title="${t("deleteBtn")}" aria-label="${t("deleteBtn")}">${icon("trash")}</button>
+      </div>
+    </article>`;
+}
+
+function renderCoachAbout() {
+  const settings = state.coach?.settings || DEFAULT_SETTINGS;
+  const links = settings.coachLinks || [];
+  const certificates = state.coach?.certificates || [];
+  const avatarUrl = state.coach?.coachAvatarUrl || createDrawingAvatar("coach");
+  return `
+    <div class="view-stack settings-stack">
+      <section class="card">
+        <div class="card-header"><div><h2>${t("coachAboutProfileTitle")}</h2><p>${t("coachAboutProfileSub")}</p></div>${icon("about")}</div>
+        <form data-form="coach-about">
+          <div class="about-photo-row">
+            <img class="about-avatar" id="coachAvatarPreview" src="${esc(avatarUrl)}" alt="" />
+            <div class="about-photo-fields">
+              <label class="form-label" for="coachAvatarFile">${t("photoLabel")}</label>
+              <input class="form-control file-input" id="coachAvatarFile" type="file" accept="image/webp,image/jpeg,image/png" />
+              <p class="form-hint">${t("photoHint")}</p>
+              <label class="form-check">
+                <input type="checkbox" name="removeAvatar" value="1" ${state.aboutAvatarRemoved ? "checked" : ""} />
+                <span>${t("removePhotoBtn")}</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group span-full">
+              <label class="form-label" for="coachBioEn">${t("bioEnLabel")}</label>
+              <textarea class="form-control ltr-field" id="coachBioEn" name="bioEn" rows="4" placeholder="${t("bioPlaceholder")}">${esc(settings.coachBioEn)}</textarea>
+            </div>
+            <div class="form-group span-full">
+              <label class="form-label" for="coachBioAr">${t("bioArLabel")}</label>
+              <textarea class="form-control" id="coachBioAr" name="bioAr" rows="4" placeholder="${t("bioPlaceholder")}">${esc(settings.coachBioAr)}</textarea>
+            </div>
+            <p class="form-hint span-full">${t("bioHint")}</p>
+          </div>
+
+          <div class="about-links-block">
+            <div class="about-section-head">
+              <div><h3>${t("socialLinksTitle")}</h3><p>${t("socialLinksSub")}</p></div>
+              <button class="btn btn-secondary btn-sm" type="button" data-action="add-about-link">${icon("plus")}${t("addLinkBtn")}</button>
+            </div>
+            <div class="about-links" data-about-links>
+              ${links.map((link) => aboutLinkRowMarkup(link)).join("")}
+            </div>
+            <p class="form-hint" data-about-links-empty ${links.length ? "hidden" : ""}>${t("noLinksLabel")}</p>
+          </div>
+
+          <div class="form-actions span-full"><button class="btn btn-primary" type="submit">${t("saveAboutBtn")}</button></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div><h2>${t("certificatesTitle")}</h2><p>${t("certificatesSub")}</p></div>
+          <button class="btn btn-primary btn-sm" type="button" data-action="add-certificate">${icon("plus")}${t("addCertificateBtn")}</button>
+        </div>
+        ${certificates.length
+          ? `<div class="certificate-grid">${certificates.map((certificate, index) => renderCoachCertificateCard(certificate, index, certificates.length)).join("")}</div>`
+          : `<p class="day-empty">${t("noCertificatesLabel")}</p>`}
+      </section>
+    </div>
+  `;
+}
+
+function openCertificateModal(certificate = null) {
+  resetCertificateFile();
+  openModal(`
+    <form data-form="coach-certificate" data-cert-id="${certificate ? esc(certificate.id) : ""}">
+      ${modalHead(certificate ? t("editCertificateTitle") : t("newCertificateTitle"))}
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="certTitleEn">${t("certificateTitleEnLabel")}</label>
+            <input class="form-control ltr-field" id="certTitleEn" name="titleEn" value="${certificate ? esc(certificate.titleEn) : ""}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="certTitleAr">${t("certificateTitleArLabel")}</label>
+            <input class="form-control" id="certTitleAr" name="titleAr" value="${certificate ? esc(certificate.titleAr) : ""}" />
+          </div>
+          <div class="form-group span-full">
+            <label class="form-label" for="certDescEn">${t("certificateDescEnLabel")}</label>
+            <textarea class="form-control ltr-field" id="certDescEn" name="descriptionEn" rows="2">${certificate ? esc(certificate.descEn) : ""}</textarea>
+          </div>
+          <div class="form-group span-full">
+            <label class="form-label" for="certDescAr">${t("certificateDescArLabel")}</label>
+            <textarea class="form-control" id="certDescAr" name="descriptionAr" rows="2">${certificate ? esc(certificate.descAr) : ""}</textarea>
+          </div>
+          <p class="form-hint span-full">${t("certificateHintBoth")}</p>
+          <div class="form-group span-full">
+            <label class="form-label" for="certificateFile">${t("certificateFileLabel")}</label>
+            <input class="form-control file-input" id="certificateFile" type="file" accept="image/webp,image/jpeg,image/png,application/pdf" />
+            <p class="form-hint" id="certificateFileName">${t("certificateFileHint")}</p>
+            ${certificate?.url ? `<a class="link-btn" href="${esc(certificate.url)}" target="_blank" rel="noopener">${icon("external")}${t("certificateOpenBtn")}</a>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" type="button" data-action="close-modal">${t("cancelBtn")}</button>
+        <button class="btn btn-primary" type="submit">${t("saveBtn")}</button>
+      </div>
+    </form>
+  `, true);
+}
+
+function renderTraineeCertificateCard(certificate) {
+  return `
+    <button class="certificate-card is-interactive" type="button" data-action="view-certificate" data-cert-id="${esc(certificate.id)}">
+      ${certificateThumbMarkup(certificate)}
+      <span class="certificate-copy">
+        <strong>${bi(certificate, "title")}</strong>
+        ${certificate.descEn || certificate.descAr ? `<span class="certificate-desc">${bi(certificate, "desc")}</span>` : ""}
+      </span>
+    </button>`;
+}
+
+async function openCoachProfile() {
+  state.coachProfile = null;
+  state.coachProfileCertificates = [];
+  openModal(`
+    ${modalHead(t("coachProfileTitle"), t("coachProfileSub"))}
+    <div class="modal-body"><div class="modal-loading"><span class="spinner"></span><p>${t("coachProfileLoading")}</p></div></div>
+  `, true);
+  const token = state.modalToken;
+  try {
+    const data = await getTraineeCoachProfile();
+    if (token !== state.modalToken) return;
+    state.coachProfile = data.coach;
+    state.coachProfileCertificates = data.certificates || [];
+    renderCoachProfileModal();
+  } catch (error) {
+    if (token !== state.modalToken) return;
+    closeModal();
+    showToast(errorMessage(error), "error");
+  }
+}
+
+function renderCoachProfileModal() {
+  const coach = state.coachProfile;
+  if (!coach) return;
+  const name = state.lang === "ar" ? coach.nameAr : coach.nameEn;
+  const bio = state.lang === "ar" ? (coach.bioAr || coach.bioEn) : (coach.bioEn || coach.bioAr);
+  const links = coach.links || [];
+  const certificates = state.coachProfileCertificates || [];
+  const contacts = [];
+  if (coach.whatsappPhone) {
+    contacts.push(`<a class="btn btn-primary btn-sm" href="https://wa.me/${esc(String(coach.whatsappPhone).replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>`);
+  }
+  if (coach.email) {
+    contacts.push(`<a class="btn btn-secondary btn-sm" href="mailto:${esc(coach.email)}">${t("contactCoachBtn")}</a>`);
+  }
+
+  openModal(`
+    ${modalHead(esc(name), t("coachProfileSub"))}
+    <div class="modal-body coach-profile-body">
+      <div class="coach-profile-hero">
+        <img class="coach-profile-avatar" src="${esc(coach.avatarUrl)}" alt="" />
+        <div class="coach-profile-intro">
+          <h3>${esc(name)}</h3>
+          ${bio ? `<p class="coach-profile-bio">${esc(bio)}</p>` : ""}
+          ${contacts.length ? `<div class="coach-profile-actions">${contacts.join("")}</div>` : ""}
+        </div>
+      </div>
+
+      ${links.length ? `
+        <section class="coach-profile-section">
+          <h4>${t("socialLinksTitle")}</h4>
+          <div class="coach-link-list">
+            ${links.map((link) => `<a class="coach-link-chip" href="${esc(link.url)}" target="_blank" rel="noopener">${icon("link")}<span>${esc(link.name || link.url)}</span></a>`).join("")}
+          </div>
+        </section>
+      ` : ""}
+
+      <section class="coach-profile-section">
+        <h4>${t("certificatesTitle")}</h4>
+        ${certificates.length
+          ? `<div class="certificate-grid">${certificates.map((certificate) => renderTraineeCertificateCard(certificate)).join("")}</div>`
+          : `<p class="day-empty">${t("noCertificatesLabel")}</p>`}
+      </section>
+    </div>
+  `, true);
+}
+
+function openCertificateViewer(certificateId) {
+  const certificate = (state.coachProfileCertificates || []).find((item) => item.id === certificateId)
+    || (state.coach?.certificates || []).find((item) => item.id === certificateId);
+  if (!certificate || !certificate.url) {
+    showToast(t("errCertificateNotFound"), "error");
+    return;
+  }
+  const title = state.lang === "ar"
+    ? (certificate.titleAr || certificate.titleEn)
+    : (certificate.titleEn || certificate.titleAr);
+  const body = certificate.isPdf
+    ? `<div class="certificate-viewer"><iframe class="certificate-pdf-frame" src="${esc(certificate.url)}#view=FitH" title="${esc(title)}"></iframe></div>`
+    : `<div class="certificate-viewer"><img src="${esc(certificate.url)}" alt="${esc(title)}" /></div>`;
+  openModal(`
+    ${modalHead(esc(title))}
+    <div class="modal-body">
+      ${body}
+      <div class="modal-actions">
+        <a class="btn btn-secondary" href="${esc(certificate.url)}" target="_blank" rel="noopener">${icon("external")}${t("certificateOpenBtn")}</a>
+      </div>
+    </div>
+  `, true);
+}
+
+function resetCertificateFile() {
+  if (state.certificatePreviewUrl) {
+    URL.revokeObjectURL(state.certificatePreviewUrl);
+  }
+  state.certificatePreviewUrl = null;
+  state.certificateFile = null;
+}
+
+function resetAboutAvatarState() {
+  if (state.aboutAvatarPreviewUrl) {
+    URL.revokeObjectURL(state.aboutAvatarPreviewUrl);
+  }
+  state.aboutAvatarPreviewUrl = null;
+  state.aboutAvatarFile = null;
+  state.aboutAvatarRemoved = false;
+}
+
 function exercisePreviewMarkup(exercise) {
   if (!exercise) return "";
   return `
@@ -2091,6 +2391,7 @@ function renderTraineeSchedule() {
     if (coachEmail) {
       actions.push(`<a class="btn btn-secondary" href="mailto:${esc(coachEmail)}">${t("contactCoachBtn")}</a>`);
     }
+    actions.push(`<button class="btn btn-secondary" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>`);
     return `
       <div class="view-stack">
         <section class="card">${emptyState(t("noLiveWeekTitle"), t("noLiveWeekBody"), actions.length ? actions.join("") : "")}</section>
@@ -2120,10 +2421,15 @@ function renderTraineeSchedule() {
         <aside class="trainee-side">
           <section class="card coach-mini-card">
             <span class="eyebrow">${t("yourCoachLabel")}</span>
-            <img class="coach-portrait" src="${createDrawingAvatar("coach")}" alt="" />
-            <h3>${esc((state.lang === "ar" ? (workspace.coach?.nameAr || workspace.coach?.name_ar) : (workspace.coach?.nameEn || workspace.coach?.name_en)) || coachName())}</h3>
+            <button class="coach-mini-open" type="button" data-action="open-coach-profile">
+              <img class="coach-portrait" src="${esc(workspace.coach?.avatarUrl || createDrawingAvatar("coach"))}" alt="" />
+              <h3>${esc((state.lang === "ar" ? (workspace.coach?.nameAr || workspace.coach?.name_ar) : (workspace.coach?.nameEn || workspace.coach?.name_en)) || coachName())}</h3>
+            </button>
             <p>${t("coachMiniBody")}</p>
-            ${workspace.coach?.whatsappPhone ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${esc(workspace.coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
+            <div class="coach-mini-actions">
+              ${workspace.coach?.whatsappPhone ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${esc(workspace.coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
+              <button class="link-btn" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>
+            </div>
           </section>
           <section class="card week-summary-card">
             <h3>${t("weekSummaryTitle")}</h3>
@@ -2149,12 +2455,13 @@ function renderTraineeStatusCard() {
       <h2>${t("planLockedTitle")}</h2>
       <p>${t("planLockedBody")}</p>
       <div class="lock-contact">
-        <span class="avatar avatar-lg"><img src="${createDrawingAvatar("coach")}" alt="" /></span>
+        <span class="avatar avatar-lg"><img src="${esc(coach?.avatarUrl || createDrawingAvatar("coach"))}" alt="" /></span>
         <div><strong>${esc((state.lang === "ar" ? (coach?.nameAr || coach?.name_ar) : (coach?.nameEn || coach?.name_en)) || coachName())}</strong><span>${esc(coachEmail)}</span></div>
       </div>
       <div class="modal-actions">
         ${coach?.whatsappPhone ? `<a class="btn btn-primary" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
         ${coachEmail ? `<a class="btn btn-secondary" href="mailto:${esc(coachEmail)}">${t("contactCoachBtn")}</a>` : ""}
+        <button class="btn btn-secondary" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>
       </div>
     </section>
   `;
@@ -2418,11 +2725,12 @@ function renderTraineeSettings() {
       <section class="card">
         <div class="card-header"><div><h2>${t("yourCoachLabel")}</h2><p>${t("coachContactTraineeSub")}</p></div></div>
         <div class="contact-row">
-          <span class="avatar avatar-lg"><img src="${createDrawingAvatar("coach")}" alt="" /></span>
+          <span class="avatar avatar-lg"><img src="${esc(coach?.avatarUrl || createDrawingAvatar("coach"))}" alt="" /></span>
           <div class="activity-copy"><strong>${esc((state.lang === "ar" ? (coach?.nameAr || coach?.name_ar) : (coach?.nameEn || coach?.name_en)) || coachName())}</strong><span>${esc(coach?.email || "")}</span></div>
           <div class="contact-actions">
             ${coach?.whatsappPhone ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("whatsappBtn")}</a>` : ""}
             ${coach?.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${esc(coach.email)}">${t("emailBtn")}</a>` : ""}
+            <button class="btn btn-primary btn-sm" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>
           </div>
         </div>
       </section>
@@ -2461,6 +2769,7 @@ function modalHead(title, subtitle = "") {
 }
 
 function openModal(content, wide = false) {
+  state.modalToken += 1;
   const backdrop = document.getElementById("appModalBackdrop");
   const box = document.getElementById("appModalContent");
   if (!backdrop || !box) return;
@@ -2477,6 +2786,7 @@ function openModal(content, wide = false) {
 }
 
 function closeModal() {
+  state.modalToken += 1;
   const backdrop = document.getElementById("appModalBackdrop");
   const box = document.getElementById("appModalContent");
   if (!backdrop || !box) return;
@@ -2488,6 +2798,9 @@ function closeModal() {
   state.confirmAction = null;
   state.reviewProof = null;
   resetProofState();
+  resetCertificateFile();
+  state.coachProfile = null;
+  state.coachProfileCertificates = [];
   state.modalFile = null;
   state.lastCreated = null;
 }
@@ -3160,6 +3473,41 @@ async function handleFormSubmit(form) {
       showToast(t("contactSavedToast"));
       return;
     }
+    if (type === "coach-about") {
+      const linkNames = data.getAll("linkName").map((item) => String(item || ""));
+      const linkUrls = data.getAll("linkUrl").map((item) => String(item || ""));
+      const links = linkNames.map((name, index) => ({ name, url: linkUrls[index] || "" }));
+      await saveCoachAbout({
+        bioEn: value("bioEn"),
+        bioAr: value("bioAr"),
+        links,
+        avatarFile: state.aboutAvatarFile,
+        removeAvatar: data.has("removeAvatar")
+      });
+      resetAboutAvatarState();
+      await refreshWorkspaceData();
+      showToast(t("aboutSavedToast"));
+      return;
+    }
+    if (type === "coach-certificate") {
+      const certificateId = form.dataset.certId || "";
+      const payload = {
+        titleEn: value("titleEn"),
+        titleAr: value("titleAr"),
+        descriptionEn: value("descriptionEn"),
+        descriptionAr: value("descriptionAr"),
+        file: state.certificateFile
+      };
+      if (certificateId) {
+        await updateCoachCertificate(certificateId, payload);
+      } else {
+        await addCoachCertificate(payload);
+      }
+      closeModal();
+      await refreshWorkspaceData();
+      showToast(t("certificateSavedToast"));
+      return;
+    }
     if (type === "trainee-profile") {
       await saveTraineeProfile({
         nameEn: value("nameEn"),
@@ -3470,6 +3818,84 @@ function bindEvents() {
       const exercise = getExercise(actionButton.dataset.exerciseId);
       const workout = findTraineeWorkout(actionButton.dataset.workoutId);
       if (exercise) openExerciseDetail(exercise, workout);
+      return;
+    }
+    if (action === "open-coach-profile") {
+      performButtonAction(actionButton, openCoachProfile);
+      return;
+    }
+    if (action === "add-certificate") {
+      openCertificateModal();
+      return;
+    }
+    if (action === "edit-certificate") {
+      const certificate = (state.coach?.certificates || []).find((item) => item.id === actionButton.dataset.certId);
+      if (certificate) openCertificateModal(certificate);
+      return;
+    }
+    if (action === "view-certificate") {
+      openCertificateViewer(actionButton.dataset.certId);
+      return;
+    }
+    if (action === "delete-certificate") {
+      const certificate = (state.coach?.certificates || []).find((item) => item.id === actionButton.dataset.certId);
+      if (!certificate) return;
+      const title = state.lang === "ar"
+        ? (certificate.titleAr || certificate.titleEn)
+        : (certificate.titleEn || certificate.titleAr);
+      openConfirm({
+        title: t("deleteCertificateTitle"),
+        body: `${t("deleteCertificateBody")} <strong>${esc(title)}</strong>`,
+        label: t("deleteBtn"),
+        tone: "danger",
+        action: async () => {
+          await deleteCoachCertificate(certificate.id);
+          await refreshWorkspaceData();
+          showToast(t("certificateDeletedToast"));
+        }
+      });
+      return;
+    }
+    if (action === "move-certificate") {
+      const certificates = [...(state.coach?.certificates || [])];
+      const index = certificates.findIndex((item) => item.id === actionButton.dataset.certId);
+      const target = index + (Number(actionButton.dataset.dir) || 0);
+      if (index < 0 || target < 0 || target >= certificates.length) return;
+      [certificates[index], certificates[target]] = [certificates[target], certificates[index]];
+      performButtonAction(actionButton, async () => {
+        await reorderCoachCertificates(certificates.map((item) => item.id));
+        await refreshWorkspaceData();
+      });
+      return;
+    }
+    if (action === "add-about-link") {
+      const container = document.querySelector("[data-about-links]");
+      if (!container) return;
+      container.insertAdjacentHTML("beforeend", aboutLinkRowMarkup());
+      const empty = document.querySelector("[data-about-links-empty]");
+      if (empty) empty.hidden = true;
+      const rows = container.querySelectorAll("[data-about-link-row]");
+      rows[rows.length - 1]?.querySelector('input[name="linkName"]')?.focus();
+      return;
+    }
+    if (action === "remove-about-link") {
+      const row = actionButton.closest("[data-about-link-row]");
+      if (!row) return;
+      row.remove();
+      const container = document.querySelector("[data-about-links]");
+      const empty = document.querySelector("[data-about-links-empty]");
+      if (empty) empty.hidden = Boolean(container?.querySelector("[data-about-link-row]"));
+      return;
+    }
+    if (action === "move-about-link") {
+      const row = actionButton.closest("[data-about-link-row]");
+      if (!row) return;
+      const direction = Number(actionButton.dataset.dir) || 0;
+      if (direction < 0 && row.previousElementSibling) {
+        row.parentElement.insertBefore(row, row.previousElementSibling);
+      } else if (direction > 0 && row.nextElementSibling) {
+        row.parentElement.insertBefore(row.nextElementSibling, row);
+      }
       return;
     }
     if (action === "close-modal") {
@@ -3879,6 +4305,74 @@ function bindEvents() {
       } else {
         preview.innerHTML = "";
       }
+      return;
+    }
+    if (target.id === "coachAvatarFile") {
+      const file = target.files?.[0] || null;
+      if (!file) return;
+      (async () => {
+        try {
+          const compressed = await compressCertificateImage(file);
+          const extension = compressed.type === "image/jpeg" ? "jpg" : "webp";
+          const baseName = String(file.name || "avatar").replace(/\.[^.]+$/, "");
+          const upload = new File([compressed.blob], `${baseName}.${extension}`, { type: compressed.type });
+          state.aboutAvatarFile = upload;
+          state.aboutAvatarRemoved = false;
+          if (state.aboutAvatarPreviewUrl) URL.revokeObjectURL(state.aboutAvatarPreviewUrl);
+          state.aboutAvatarPreviewUrl = URL.createObjectURL(upload);
+          const preview = document.getElementById("coachAvatarPreview");
+          if (preview) preview.src = state.aboutAvatarPreviewUrl;
+          const checkbox = document.querySelector('input[name="removeAvatar"]');
+          if (checkbox) checkbox.checked = false;
+        } catch (error) {
+          target.value = "";
+          showToast(errorMessage(error), "error");
+        }
+      })();
+      return;
+    }
+    if (target.id === "certificateFile") {
+      const file = target.files?.[0] || null;
+      const form = target.closest("form");
+      resetCertificateFile();
+      const label = document.getElementById("certificateFileName");
+      if (!file) {
+        if (label) label.textContent = t("certificateFileHint");
+        return;
+      }
+      if (file.type === "application/pdf") {
+        if (file.size > 25 * 1024 * 1024) {
+          target.value = "";
+          if (label) label.textContent = t("certificateFileHint");
+          showToast(t("errCertificateFileSize"), "error");
+          return;
+        }
+        state.certificateFile = file;
+        if (label) label.textContent = `${file.name} · ${formatBytes(file.size)}`;
+        return;
+      }
+      if (!["image/webp", "image/jpeg", "image/png"].includes(file.type)) {
+        target.value = "";
+        showToast(t("errCertificateFileType"), "error");
+        return;
+      }
+      if (label) label.textContent = t("certificateCompressing");
+      (async () => {
+        try {
+          const compressed = await compressCertificateImage(file);
+          if (!form || !form.isConnected) return;
+          const extension = compressed.type === "image/jpeg" ? "jpg" : "webp";
+          const baseName = String(file.name || "certificate").replace(/\.[^.]+$/, "");
+          const upload = new File([compressed.blob], `${baseName}.${extension}`, { type: compressed.type });
+          state.certificateFile = upload;
+          if (label) label.textContent = `${file.name} · ${formatBytes(compressed.bytes)}`;
+        } catch (error) {
+          state.certificateFile = null;
+          target.value = "";
+          if (label) label.textContent = t("certificateFileHint");
+          showToast(errorMessage(error), "error");
+        }
+      })();
     }
   });
 

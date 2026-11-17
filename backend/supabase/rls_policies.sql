@@ -11,6 +11,7 @@ alter table public.trainee_day_settings enable row level security;
 alter table public.scheduled_workouts enable row level security;
 alter table public.activity_events enable row level security;
 alter table public.leaderboard_previous_winners enable row level security;
+alter table public.coach_certificates enable row level security;
 
 -- Profiles ------------------------------------------------------------------
 drop policy if exists "profiles_select_scope" on public.profiles;
@@ -198,6 +199,22 @@ to authenticated
 using (public.is_coach_or_admin())
 with check (public.is_coach_or_admin());
 
+-- Coach certificates ---------------------------------------------------------
+-- Every signed-in user may read the coach's certificates; only the coach owns
+-- the rows, so only she can add, edit or remove them.
+drop policy if exists "coach_certificates_read_authenticated" on public.coach_certificates;
+create policy "coach_certificates_read_authenticated"
+on public.coach_certificates for select
+to authenticated
+using (true);
+
+drop policy if exists "coach_certificates_write_owner" on public.coach_certificates;
+create policy "coach_certificates_write_owner"
+on public.coach_certificates for all
+to authenticated
+using (coach_id = auth.uid() and public.is_coach_or_admin())
+with check (coach_id = auth.uid() and public.is_coach_or_admin());
+
 -- Private storage bucket ----------------------------------------------------
 drop policy if exists "workout_proofs_insert_own" on storage.objects;
 create policy "workout_proofs_insert_own"
@@ -276,5 +293,48 @@ create policy "exercise_media_delete_privileged"
 on storage.objects for delete
 to authenticated
 using (bucket_id = 'exercise-media' and public.is_coach_or_admin());
+
+-- Coach media (profile photo + certificates): readable by every signed-in user,
+-- writable only by the owning coach inside her own folder.
+drop policy if exists "coach_media_read_authenticated" on storage.objects;
+create policy "coach_media_read_authenticated"
+on storage.objects for select
+to authenticated
+using (bucket_id = 'coach-media');
+
+drop policy if exists "coach_media_insert_owner" on storage.objects;
+create policy "coach_media_insert_owner"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'coach-media'
+  and public.is_coach_or_admin()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "coach_media_update_owner" on storage.objects;
+create policy "coach_media_update_owner"
+on storage.objects for update
+to authenticated
+using (
+  bucket_id = 'coach-media'
+  and public.is_coach_or_admin()
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'coach-media'
+  and public.is_coach_or_admin()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "coach_media_delete_owner" on storage.objects;
+create policy "coach_media_delete_owner"
+on storage.objects for delete
+to authenticated
+using (
+  bucket_id = 'coach-media'
+  and public.is_coach_or_admin()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
 
 commit;

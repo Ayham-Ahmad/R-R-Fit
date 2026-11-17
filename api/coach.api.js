@@ -1,13 +1,17 @@
 import {
   DAY_KEYS,
   buildSchedule,
+  getAuthUser,
   getCategories,
   getExercises,
   getLiveWeek,
   getPlatformSettings,
+  getStorageSignedUrls,
   getWeeks,
+  mapCertificate,
   mapExercise,
   mapTraineeProfile,
+  normalizeLinkUrl,
   normalizePhone,
   requireSupabase,
   unwrap
@@ -56,23 +60,33 @@ function deriveRecentActivity(profiles, workouts) {
 
 export async function loadCoachWorkspace() {
   const client = requireSupabase();
-  const [settings, categories, exercises, weeks, currentWeek] = await Promise.all([
+  const [settings, categories, exercises, weeks, currentWeek, user] = await Promise.all([
     getPlatformSettings(),
     getCategories(),
     getExercises(),
     getWeeks(),
-    getLiveWeek()
+    getLiveWeek(),
+    getAuthUser()
   ]);
 
-  const [profilesResult, winnersResult, activityResult] = await Promise.all([
+  const [profilesResult, winnersResult, activityResult, certificatesResult] = await Promise.all([
     client.from("profiles").select("*").eq("role", "trainee").order("name_en", { ascending: true }),
     client.rpc("get_leaderboard_archive"),
-    client.from("activity_events").select("*").order("created_at", { ascending: false }).limit(20)
+    client.from("activity_events").select("*").order("created_at", { ascending: false }).limit(20),
+    user?.id
+      ? client
+          .from("coach_certificates")
+          .select("*")
+          .eq("coach_id", user.id)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] })
   ]);
 
   const profiles = unwrap(profilesResult, "Unable to load trainees") || [];
   const archiveRows = unwrap(winnersResult, "Unable to load previous winners") || [];
   const activityRows = unwrap(activityResult, "Unable to load activity") || [];
+  const certificateRows = unwrap(certificatesResult, "Unable to load certificates") || [];
 
   let workouts = [];
   let daySettings = [];
@@ -121,8 +135,15 @@ export async function loadCoachWorkspace() {
       }))
     : deriveRecentActivity(profiles, workouts);
 
+  const mediaUrls = await getStorageSignedUrls("coach-media", [
+    settings.coachAvatarPath,
+    ...certificateRows.map((row) => row.file_path)
+  ]);
+
   return {
     settings,
+    coachAvatarUrl: mediaUrls[settings.coachAvatarPath] || "",
+    certificates: certificateRows.map((row) => mapCertificate(row, mediaUrls[row.file_path])),
     categories,
     exercises,
     weeks,
@@ -493,6 +514,265 @@ export async function savePlatformSettings(settings) {
       .single(),
     "Unable to save platform settings"
   );
+}
+
+// ---------------------------------------------------------------------------
+// Coach "About me"
+// ---------------------------------------------------------------------------
+
+export async function saveCoachAbout({
+  bioEn = "",
+  bioAr = "",
+  links = [],
+  avatarFile = null,
+  removeAvatar = false
+} = {}) {
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+
+  const cleanedLinks = [];
+  for (const item of Array.isArray(links) ? links : []) {
+    const name = String(item?.name || "").trim().slice(0, 60);
+    const rawUrl = String(item?.url || "").trim();
+    if (!name && !rawUrl) continue;
+    if (!rawUrl) throw new Error("LINK_URL_INVALID");
+    const url = normalizeLinkUrl(rawUrl);
+    if (!url) throw new Error("LINK_URL_INVALID");
+    let host = "";
+    try {
+      host = new URL(url).hostname.replace(/^www\./i, "");
+    } catch {
+      host = "";
+    }
+    cleanedLinks.push({ name: name || host || url, url });
+  }
+
+  const { data: current, error: currentError } = await client
+    .from("platform_settings")
+    .select("coach_avatar_path")
+    .eq("id", 1)
+    .maybeSingle();
+  if (currentError) throw new Error(currentError.message);
+
+  const previousAvatar = current?.coach_avatar_path || null;
+  let avatarPath = removeAvatar ? null : previousAvatar;
+  let uploadedPath = null;
+
+  if (avatarFile) {
+    const allowed = ["image/webp", "image/jpeg", "image/png"];
+    if (!allowed.includes(avatarFile.type)) throw new Error("AVATAR_FILE_TYPE");
+    if (avatarFile.size > 25 * 1024 * 1024) throw new Error("AVATAR_FILE_TOO_LARGE");
+    const extension = avatarFile.type.split("/")[1].replace("jpeg", "jpg");
+    uploadedPath = `${user.id}/avatar/${Date.now()}.${extension}`;
+    const { error: uploadError } = await client.storage
+      .from("coach-media")
+      .upload(uploadedPath, avatarFile, { contentType: avatarFile.type, upsert: false });
+    if (uploadError) throw new Error(uploadError.message);
+    avatarPath = uploadedPath;
+  }
+
+  try {
+    const row = unwrap(
+      await client
+        .from("platform_settings")
+        .update({
+          coach_bio_en: String(bioEn || "").trim(),
+          coach_bio_ar: String(bioAr || "").trim(),
+          coach_links: cleanedLinks,
+          coach_avatar_path: avatarPath
+        })
+        .eq("id", 1)
+        .select("*")
+        .single(),
+      "Unable to save your About page"
+    );
+    if (previousAvatar && previousAvatar !== avatarPath) {
+      await client.storage.from("coach-media").remove([previousAvatar]);
+    }
+    return row;
+  } catch (error) {
+    if (uploadedPath) {
+      await client.storage.from("coach-media").remove([uploadedPath]);
+    }
+    throw error;
+  }
+}
+
+const CERTIFICATE_TYPES = {
+  "image/webp": "webp",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "application/pdf": "pdf"
+};
+const MAX_CERTIFICATE_BYTES = 25 * 1024 * 1024;
+
+async function uploadCertificateFile(client, userId, file) {
+  const extension = CERTIFICATE_TYPES[file?.type] || "";
+  if (!extension) throw new Error("CERTIFICATE_FILE_TYPE");
+  if (file.size > MAX_CERTIFICATE_BYTES) throw new Error("CERTIFICATE_FILE_TOO_LARGE");
+  const path = `${userId}/certificates/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const { error } = await client.storage
+    .from("coach-media")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+export async function addCoachCertificate({
+  titleEn = "",
+  titleAr = "",
+  descriptionEn = "",
+  descriptionAr = "",
+  file = null
+} = {}) {
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+  if (!String(titleEn || "").trim() && !String(titleAr || "").trim()) {
+    throw new Error("CERTIFICATE_TITLE_REQUIRED");
+  }
+  if (!file) throw new Error("CERTIFICATE_FILE_REQUIRED");
+
+  const { data: last, error: orderError } = await client
+    .from("coach_certificates")
+    .select("sort_order")
+    .eq("coach_id", user.id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (orderError) throw new Error(orderError.message);
+
+  const filePath = await uploadCertificateFile(client, user.id, file);
+  try {
+    return unwrap(
+      await client
+        .from("coach_certificates")
+        .insert({
+          coach_id: user.id,
+          title_en: String(titleEn || "").trim(),
+          title_ar: String(titleAr || "").trim(),
+          description_en: String(descriptionEn || "").trim(),
+          description_ar: String(descriptionAr || "").trim(),
+          file_path: filePath,
+          file_name: file.name || "",
+          mime_type: file.type,
+          sort_order: (Number(last?.sort_order) || 0) + 1
+        })
+        .select("*")
+        .single(),
+      "Unable to save the certificate"
+    );
+  } catch (error) {
+    await client.storage.from("coach-media").remove([filePath]);
+    throw error;
+  }
+}
+
+export async function updateCoachCertificate(id, updates = {}) {
+  if (!id) throw new Error("CERTIFICATE_NOT_FOUND");
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+
+  const { data: existing, error: loadError } = await client
+    .from("coach_certificates")
+    .select("*")
+    .eq("id", id)
+    .eq("coach_id", user.id)
+    .maybeSingle();
+  if (loadError) throw new Error(loadError.message);
+  if (!existing) throw new Error("CERTIFICATE_NOT_FOUND");
+
+  const payload = {
+    title_en: updates.titleEn !== undefined ? String(updates.titleEn || "").trim() : existing.title_en,
+    title_ar: updates.titleAr !== undefined ? String(updates.titleAr || "").trim() : existing.title_ar,
+    description_en:
+      updates.descriptionEn !== undefined ? String(updates.descriptionEn || "").trim() : existing.description_en,
+    description_ar:
+      updates.descriptionAr !== undefined ? String(updates.descriptionAr || "").trim() : existing.description_ar
+  };
+  if (!payload.title_en && !payload.title_ar) throw new Error("CERTIFICATE_TITLE_REQUIRED");
+
+  let uploadedPath = null;
+  if (updates.file) {
+    uploadedPath = await uploadCertificateFile(client, user.id, updates.file);
+    payload.file_path = uploadedPath;
+    payload.file_name = updates.file.name || existing.file_name;
+    payload.mime_type = updates.file.type;
+  }
+
+  try {
+    const row = unwrap(
+      await client
+        .from("coach_certificates")
+        .update(payload)
+        .eq("id", id)
+        .eq("coach_id", user.id)
+        .select("*")
+        .single(),
+      "Unable to update the certificate"
+    );
+    if (uploadedPath && existing.file_path) {
+      await client.storage.from("coach-media").remove([existing.file_path]);
+    }
+    return row;
+  } catch (error) {
+    if (uploadedPath) {
+      await client.storage.from("coach-media").remove([uploadedPath]);
+    }
+    throw error;
+  }
+}
+
+export async function deleteCoachCertificate(id) {
+  if (!id) throw new Error("CERTIFICATE_NOT_FOUND");
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+
+  const { data: existing, error: loadError } = await client
+    .from("coach_certificates")
+    .select("id, file_path")
+    .eq("id", id)
+    .eq("coach_id", user.id)
+    .maybeSingle();
+  if (loadError) throw new Error(loadError.message);
+  if (!existing) throw new Error("CERTIFICATE_NOT_FOUND");
+
+  unwrap(
+    await client
+      .from("coach_certificates")
+      .delete()
+      .eq("id", id)
+      .eq("coach_id", user.id)
+      .select("id")
+      .single(),
+    "Unable to delete the certificate"
+  );
+  if (existing.file_path) {
+    await client.storage.from("coach-media").remove([existing.file_path]);
+  }
+  return { id };
+}
+
+export async function reorderCoachCertificates(ids = []) {
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+
+  const results = await Promise.all(
+    (ids || []).map((id, index) =>
+      client
+        .from("coach_certificates")
+        .update({ sort_order: index })
+        .eq("id", id)
+        .eq("coach_id", user.id)
+    )
+  );
+  const failed = results.find((result) => result.error);
+  if (failed) throw new Error(failed.error.message);
+  return ids;
 }
 
 export async function getWorkoutProofDetails(traineeId) {

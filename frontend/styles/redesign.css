@@ -4297,6 +4297,19 @@ html[dir="rtl"] .auth-home-btn .icon {
   min-width: 0;
 }
 
+/* Days read as one vertical list: every day card keeps a comfortable reading
+   width instead of being squeezed into several narrow auto-fill columns. */
+.trainee-day-grid {
+  grid-template-columns: minmax(min(100%, 300px), 720px);
+  justify-content: start;
+  gap: 14px;
+}
+
+.trainee-day-card {
+  width: 100%;
+  max-width: 720px;
+}
+
 .trainee-day-card .trainee-workout {
   position: relative;
   gap: 9px;

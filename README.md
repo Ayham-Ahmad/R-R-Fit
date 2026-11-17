@@ -199,8 +199,22 @@ The same statements are available separately as `update_media_paths.sql` and `cl
 
 4. Run `sql/fix_exercises.sql` if the exercise media paths have not been set yet.
 5. Run `sql/proof_channels_and_cleanup.sql` to enable the WhatsApp proof channel, coach approval without a screenshot, and the 10 MB proof bucket.
+6. Apply `backend/supabase/migrations/20261117000100_coach_about.sql` for the coach **About me** page (bio, links, profile photo, certificates, and the private `coach-media` bucket).
 
 Migrations live in `backend/supabase/migrations/` and are applied in filename order. `verify_db.py --apply` requires `SUPABASE_DB_URL`.
+
+### Coach About page
+
+The coach edits her public profile in the **About me** tab: photo, bio (English
+and/or Arabic), reorderable links, and certificates (JPG, PNG, WebP or PDF up to
+25 MB each). Bio, links, and the photo path live on the `platform_settings`
+row, which every signed-in user can read; certificates live in
+`coach_certificates`.
+
+Files are stored in the private `coach-media` bucket and served to trainees
+through one-hour signed URLs. Only the owning coach can write inside her
+`<coach_id>/` folder. Trainees open the coach profile from the schedule card,
+the locked-plan card, or trainee settings.
 
 ### Proof cleanup
 

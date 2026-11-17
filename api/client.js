@@ -81,6 +81,10 @@ export function mapSettings(row) {
     coachEmail: settings.coach_email || "",
     coachPhone: settings.coach_phone || "",
     whatsappPhone: normalizePhone(settings.whatsapp_phone || settings.coach_phone),
+    coachBioEn: settings.coach_bio_en || "",
+    coachBioAr: settings.coach_bio_ar || "",
+    coachAvatarPath: settings.coach_avatar_path || null,
+    coachLinks: normalizeLinks(settings.coach_links),
     mainCoachId: settings.main_coach_id || null,
     leaderboardEnabled: settings.leaderboard_enabled !== false,
     leaderboardPublished: settings.leaderboard_published !== false,
@@ -89,6 +93,77 @@ export function mapSettings(row) {
     rewardTitleEn: settings.reward_title_en || "One Extra Free Fitness Class",
     rewardTitleAr: settings.reward_title_ar || "حصة تدريبية مجانية إضافية واحدة"
   };
+}
+
+// Turns "instagram.com/name" into a usable https URL, and rejects junk.
+export function normalizeLinkUrl(value) {
+  let text = String(value || "").trim();
+  if (!text) return "";
+  if (!/^https?:\/\//i.test(text)) {
+    if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#]|$)/i.test(text)) {
+      text = `https://${text}`;
+    } else {
+      return "";
+    }
+  }
+  try {
+    const url = new URL(text);
+    if (!url.hostname.includes(".")) return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+export function normalizeLinks(raw) {
+  let list = raw;
+  if (typeof raw === "string") {
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      list = [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => ({
+      name: String(item?.name || "").trim().slice(0, 60),
+      url: normalizeLinkUrl(item?.url)
+    }))
+    .filter((item) => item.url)
+    .slice(0, 30);
+}
+
+export function mapCertificate(row, signedUrl = "") {
+  if (!row) return null;
+  return {
+    id: row.id,
+    titleEn: row.title_en || "",
+    titleAr: row.title_ar || "",
+    descEn: row.description_en || "",
+    descAr: row.description_ar || "",
+    filePath: row.file_path || "",
+    fileName: row.file_name || "",
+    mimeType: row.mime_type || "",
+    isPdf: row.mime_type === "application/pdf",
+    sortOrder: Number(row.sort_order) || 0,
+    url: signedUrl || ""
+  };
+}
+
+// Private buckets cannot use getPublicUrl, so resolve a batch of paths into
+// short-lived signed URLs. Returns a { path: url } map.
+export async function getStorageSignedUrls(bucket, paths, expiresIn = 3600) {
+  const unique = [...new Set((paths || []).filter(Boolean))];
+  if (!unique.length) return {};
+  const client = requireSupabase();
+  const { data, error } = await client.storage.from(bucket).createSignedUrls(unique, expiresIn);
+  if (error) throw new Error(error.message);
+  const urls = {};
+  (data || []).forEach((item) => {
+    if (item?.path && item?.signedUrl) urls[item.path] = item.signedUrl;
+  });
+  return urls;
 }
 
 function cleanExerciseDescription(value) {
@@ -279,7 +354,7 @@ export function mapTraineeProfile(row, { workouts = [], history = [], daySetting
   };
 }
 
-export function mapCoachProfile(settings) {
+export function mapCoachProfile(settings, avatarUrl = "") {
   return {
     nameEn: settings.coachNameEn,
     nameAr: settings.coachNameAr,
@@ -287,7 +362,11 @@ export function mapCoachProfile(settings) {
     whatsappPhone: settings.whatsappPhone,
     phoneDisplayEn: settings.coachPhone || formatPhone(settings.whatsappPhone),
     phoneDisplayAr: settings.coachPhone || formatPhone(settings.whatsappPhone),
-    avatarUrl: createDrawingAvatar("coach")
+    bioEn: settings.coachBioEn || "",
+    bioAr: settings.coachBioAr || "",
+    links: settings.coachLinks || [],
+    avatarPath: settings.coachAvatarPath || null,
+    avatarUrl: avatarUrl || createDrawingAvatar("coach")
   };
 }
 

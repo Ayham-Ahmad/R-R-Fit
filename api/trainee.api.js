@@ -4,7 +4,10 @@ import {
   getExercises,
   getLiveWeek,
   getPlatformSettings,
+  getStorageSignedUrls,
   getWeeks,
+  mapCertificate,
+  mapCoachProfile,
   mapTraineeProfile,
   normalizePhone,
   requireSupabase,
@@ -63,6 +66,8 @@ export async function loadTraineeWorkspace() {
     weekStart: currentWeek?.startsOn
   });
 
+  const coachAvatarUrls = await getStorageSignedUrls("coach-media", [settings.coachAvatarPath]);
+
   return {
     settings,
     categories,
@@ -70,14 +75,33 @@ export async function loadTraineeWorkspace() {
     weeks,
     currentWeek,
     trainee,
-    coach: {
-      nameEn: settings.coachNameEn,
-      nameAr: settings.coachNameAr,
-      email: settings.coachEmail,
-      whatsappPhone: settings.whatsappPhone,
-      phoneDisplayEn: settings.coachPhone,
-      phoneDisplayAr: settings.coachPhone
-    }
+    coach: mapCoachProfile(settings, coachAvatarUrls[settings.coachAvatarPath] || "")
+  };
+}
+
+// Loaded on demand when the trainee opens the coach profile, so signed URLs are
+// always fresh and the main workspace load stays fast.
+export async function getTraineeCoachProfile() {
+  const client = requireSupabase();
+  const settings = await getPlatformSettings();
+  const rows =
+    unwrap(
+      await client
+        .from("coach_certificates")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      "Unable to load certificates"
+    ) || [];
+
+  const mediaUrls = await getStorageSignedUrls("coach-media", [
+    settings.coachAvatarPath,
+    ...rows.map((row) => row.file_path)
+  ]);
+
+  return {
+    coach: mapCoachProfile(settings, mediaUrls[settings.coachAvatarPath] || ""),
+    certificates: rows.map((row) => mapCertificate(row, mediaUrls[row.file_path]))
   };
 }
 

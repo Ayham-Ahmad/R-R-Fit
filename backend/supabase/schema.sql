@@ -200,6 +200,10 @@ create table if not exists public.platform_settings (
   coach_email text not null default '',
   coach_phone text not null default '',
   whatsapp_phone text not null default '',
+  coach_bio_en text not null default '',
+  coach_bio_ar text not null default '',
+  coach_avatar_path text,
+  coach_links jsonb not null default '[]'::jsonb,
   main_coach_id uuid references public.profiles(id) on delete set null,
   leaderboard_enabled boolean not null default true,
   leaderboard_published boolean not null default true,
@@ -279,6 +283,35 @@ alter table public.platform_settings
 insert into public.platform_settings (id)
 values (1)
 on conflict (id) do nothing;
+
+-- Coach "About me" fields (added after the first release; keep them idempotent
+-- so re-running this file upgrades older databases).
+alter table public.platform_settings
+  add column if not exists coach_bio_en text not null default '',
+  add column if not exists coach_bio_ar text not null default '',
+  add column if not exists coach_avatar_path text,
+  add column if not exists coach_links jsonb not null default '[]'::jsonb;
+
+-- ---------------------------------------------------------------------------
+-- Coach certificates (images or PDFs in the private coach-media bucket)
+-- ---------------------------------------------------------------------------
+create table if not exists public.coach_certificates (
+  id uuid primary key default gen_random_uuid(),
+  coach_id uuid not null references public.profiles(id) on delete cascade,
+  title_en text not null default '',
+  title_ar text not null default '',
+  description_en text not null default '',
+  description_ar text not null default '',
+  file_path text not null,
+  file_name text not null default '',
+  mime_type text not null check (mime_type in ('image/webp', 'image/jpeg', 'image/png', 'application/pdf')),
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists coach_certificates_coach_idx
+  on public.coach_certificates (coach_id, sort_order, created_at);
+
 
 -- ---------------------------------------------------------------------------
 -- Leaderboard weeks, categories, exercises
@@ -692,5 +725,20 @@ on conflict (id) do update
 set public = true,
     file_size_limit = 2097152,
     allowed_mime_types = array['image/webp', 'image/gif', 'image/png', 'image/jpeg'];
+
+-- Coach media is private: profile photo and certificate files (images + PDFs).
+-- Files are served to trainees through short-lived signed URLs.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'coach-media',
+  'coach-media',
+  false,
+  26214400,
+  array['image/webp', 'image/jpeg', 'image/png', 'application/pdf']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = 26214400,
+    allowed_mime_types = array['image/webp', 'image/jpeg', 'image/png', 'application/pdf'];
 
 commit;

@@ -97,22 +97,30 @@ function result(blob, width, height, originalBytes) {
   };
 }
 
-export async function compressProofImage(file) {
+async function compressImageFile(file, options) {
+  const {
+    maxInputBytes,
+    targetBytes,
+    maxEdge,
+    tooLargeCode,
+    typeCode,
+    unsupportedCode
+  } = options;
   if (!file) return null;
   const type = String(file.type || "");
-  if (type && !type.startsWith("image/")) throw new Error("PROOF_FILE_TYPE_INVALID");
-  if (file.size > MAX_PROOF_INPUT_BYTES) throw new Error("PROOF_FILE_TOO_LARGE");
+  if (type && !type.startsWith("image/")) throw new Error(typeCode);
+  if (file.size > maxInputBytes) throw new Error(tooLargeCode);
 
   let image;
   try {
     image = await decodeImage(file);
   } catch {
-    throw new Error("PROOF_FILE_UNSUPPORTED");
+    throw new Error(unsupportedCode);
   }
 
   try {
     const outputType = supportsWebpEncoding() ? "image/webp" : "image/jpeg";
-    const start = fitDimensions(image.width, image.height, MAX_EDGE);
+    const start = fitDimensions(image.width, image.height, maxEdge);
     let width = start.width;
     let height = start.height;
     let best = null;
@@ -126,7 +134,7 @@ export async function compressProofImage(file) {
         if (!best || blob.size < best.size) {
           best = result(blob, width, height, file.size);
         }
-        if (blob.size <= TARGET_BYTES) {
+        if (blob.size <= targetBytes) {
           return result(blob, width, height, file.size);
         }
       }
@@ -135,11 +143,39 @@ export async function compressProofImage(file) {
       height = Math.max(320, Math.round(height * 0.82));
     }
 
-    if (best && best.bytes <= MAX_PROOF_OUTPUT_BYTES) return best;
-    throw new Error("PROOF_FILE_TOO_LARGE");
+    if (best) return best;
+    throw new Error(tooLargeCode);
   } finally {
     image.release?.();
   }
+}
+
+export async function compressProofImage(file) {
+  const compressed = await compressImageFile(file, {
+    maxInputBytes: MAX_PROOF_INPUT_BYTES,
+    targetBytes: TARGET_BYTES,
+    maxEdge: MAX_EDGE,
+    tooLargeCode: "PROOF_FILE_TOO_LARGE",
+    typeCode: "PROOF_FILE_TYPE_INVALID",
+    unsupportedCode: "PROOF_FILE_UNSUPPORTED"
+  });
+  if (compressed && compressed.bytes > MAX_PROOF_OUTPUT_BYTES) {
+    throw new Error("PROOF_FILE_TOO_LARGE");
+  }
+  return compressed;
+}
+
+// Certificates are documents: keep them sharp (higher quality ladder, same
+// 3000 px cap) and allow larger originals. PDFs never reach this function.
+export async function compressCertificateImage(file) {
+  return compressImageFile(file, {
+    maxInputBytes: 25 * 1024 * 1024,
+    targetBytes: 3 * 1024 * 1024,
+    maxEdge: 3000,
+    tooLargeCode: "CERTIFICATE_FILE_TOO_LARGE",
+    typeCode: "CERTIFICATE_FILE_TYPE",
+    unsupportedCode: "CERTIFICATE_FILE_TYPE"
+  });
 }
 
 export function formatBytes(bytes) {
