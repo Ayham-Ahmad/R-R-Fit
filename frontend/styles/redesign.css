@@ -4355,44 +4355,10 @@ html[dir="rtl"] .auth-home-btn .icon {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 700;
   line-height: 1.3;
   color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.trainee-day-card .trainee-workout-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: 6px;
-  row-gap: 1px;
-  min-width: 0;
-  font-size: 0.67rem;
-  line-height: 1.35;
-  color: var(--text-muted);
-}
-
-.trainee-day-card .trainee-workout-meta > span {
-  min-width: 0;
-  overflow-wrap: break-word;
-}
-
-.trainee-day-card .trainee-workout-meta .meta-sep {
-  opacity: 0.55;
-}
-
-.trainee-day-card .trainee-workout-notes {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  margin-top: 1px;
-  font-size: 0.66rem;
-  line-height: 1.35;
-  color: var(--text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -4461,7 +4427,7 @@ html[dir="rtl"] .auth-home-btn .icon {
   }
 
   .trainee-day-card .trainee-workout-name {
-    font-size: 0.76rem;
+    font-size: 0.82rem;
   }
 
   .trainee-day-card .trainee-workout-status {
@@ -4482,8 +4448,29 @@ html[dir="rtl"] .auth-home-btn .icon {
   .trainee-day-card .trainee-workout-actions {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .trainee-day-card .trainee-workout-meta .meta-sep {
-    display: none;
-  }
+.exercise-detail-note {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-subtle);
+}
+
+.exercise-detail-note strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.exercise-detail-note p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }

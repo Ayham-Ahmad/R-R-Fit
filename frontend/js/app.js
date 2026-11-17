@@ -2026,17 +2026,22 @@ function exercisePreviewMarkup(exercise) {
     </div>`;
 }
 
-function openExerciseDetail(exercise) {
+function openExerciseDetail(exercise, workout = null) {
   if (!exercise) return;
   const suffix = state.lang === "ar" ? "Ar" : "En";
   const fallback = suffix === "Ar" ? "En" : "Ar";
   const pick = (field) => exercise[`${field}${suffix}`] || exercise[`${field}${fallback}`] || "";
   const name = pick("name");
   const description = pick("desc");
+  const scheduled = Boolean(workout);
+  const sets = scheduled ? workout.sets : exercise.defaultSets;
+  const reps = scheduled ? workout[`reps${suffix}`] : pick("reps");
+  const rest = scheduled ? workout[`rest${suffix}`] : pick("rest");
+  const notes = scheduled ? bi(workout, "notes") : "";
   const rows = [
-    [t("setsLabel"), formatNumber(exercise.defaultSets)],
-    [t("repsLabel"), pick("reps")],
-    [t("restLabel"), pick("rest")]
+    [t("setsLabel"), formatNumber(sets)],
+    [t("repsLabel"), reps || ""],
+    [t("restLabel"), rest || ""]
   ];
   openModal(`
     ${modalHead(esc(name), esc(categoryName(exercise.categoryId)))}
@@ -2053,6 +2058,12 @@ function openExerciseDetail(exercise) {
           </div>
         `).join("")}
       </div>
+      ${notes ? `
+        <div class="exercise-detail-note">
+          <strong>${t("coachNoteLabel")}</strong>
+          <p>${notes}</p>
+        </div>
+      ` : ""}
     </div>
   `, true);
 }
@@ -2179,6 +2190,16 @@ function renderTraineeDay(trainee, dayKey, today) {
   `;
 }
 
+function findTraineeWorkout(workoutId) {
+  if (!workoutId) return null;
+  const schedule = state.trainee?.trainee?.schedule || {};
+  for (const day of Object.values(schedule)) {
+    const match = (day?.items || []).find((item) => item.uid === workoutId);
+    if (match) return match;
+  }
+  return null;
+}
+
 function renderTraineeWorkout(item) {
   const completed = item.status === "completed";
   const skipped = item.status === "skipped";
@@ -2193,15 +2214,9 @@ function renderTraineeWorkout(item) {
   const copy = `
     <span class="trainee-workout-copy">
       <strong class="trainee-workout-name">${getExerciseName(item.exerciseId)}</strong>
-      <span class="trainee-workout-meta">
-        <span>${formatNumber(item.sets)} × ${state.lang === "ar" ? esc(item.repsAr) : esc(item.repsEn)}</span>
-        <span class="meta-sep" aria-hidden="true">·</span>
-        <span>${state.lang === "ar" ? esc(item.restAr) : esc(item.restEn)}</span>
-      </span>
-      ${item.notesEn || item.notesAr ? `<small class="trainee-workout-notes">${bi(item, "notes")}</small>` : ""}
     </span>`;
   const topContent = exercise
-    ? `<button class="trainee-workout-open" type="button" data-action="open-exercise-detail" data-exercise-id="${esc(exercise.id)}" aria-label="${t("viewDetails")}: ${getExerciseName(item.exerciseId)}">${media}${copy}</button>`
+    ? `<button class="trainee-workout-open" type="button" data-action="open-exercise-detail" data-exercise-id="${esc(exercise.id)}" data-workout-id="${esc(item.uid)}" aria-label="${t("viewDetails")}: ${getExerciseName(item.exerciseId)}">${media}${copy}</button>`
     : `<div class="trainee-workout-open is-static">${media}${copy}</div>`;
   const statusBadge = completed
     ? verificationBadge(item.verificationStatus)
@@ -3453,7 +3468,8 @@ function bindEvents() {
     }
     if (action === "open-exercise-detail") {
       const exercise = getExercise(actionButton.dataset.exerciseId);
-      if (exercise) openExerciseDetail(exercise);
+      const workout = findTraineeWorkout(actionButton.dataset.workoutId);
+      if (exercise) openExerciseDetail(exercise, workout);
       return;
     }
     if (action === "close-modal") {
