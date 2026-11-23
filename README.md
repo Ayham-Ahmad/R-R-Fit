@@ -31,6 +31,11 @@ English and Arabic out of the box, with full RTL support and per-user language/t
 - Platform branding and settings
 
 Accounts are created by a coach or admin; there is no public sign-up.
+**Keep email signup disabled in the live Supabase project** (Auth → Providers →
+Email → *Allow new users to sign up* off). The RLS policies are written `to
+authenticated`, so if signup is left on, any visitor can register and read
+coach contact details, certificates, and leaderboard data. Provision accounts
+through the `admin-users` Edge Function instead.
 
 ### Proof lifecycle
 
@@ -200,6 +205,7 @@ The same statements are available separately as `update_media_paths.sql` and `cl
 4. Run `sql/fix_exercises.sql` if the exercise media paths have not been set yet.
 5. Run `sql/proof_channels_and_cleanup.sql` to enable the WhatsApp proof channel, coach approval without a screenshot, and the 10 MB proof bucket.
 6. Apply `backend/supabase/migrations/20261117000100_coach_about.sql` for the coach **About me** page (bio, links, profile photo, certificates, and the private `coach-media` bucket).
+7. Apply `backend/supabase/migrations/20261123000100_lock_proof_metadata.sql` so trainees cannot edit coach-owned verification notes or proof purge metadata.
 
 Migrations live in `backend/supabase/migrations/` and are applied in filename order. `verify_db.py --apply` requires `SUPABASE_DB_URL`.
 
@@ -223,18 +229,28 @@ window (3 days after approval/rejection, 14 days after completion if
 unreviewed). The workout record is kept.
 
 ```powershell
-supabase functions deploy cleanup-proofs
+supabase functions deploy cleanup-proofs --no-verify-jwt
 ```
 
-Then run `sql/schedule_cleanup.sql` in the SQL editor and replace
-`<PROJECT_REF>`. Store the service role key in Vault first:
+This job is called by `pg_cron`, not by a logged-in user, so JWT verification is
+disabled deliberately. It is protected by a dedicated shared secret instead:
+
+1. Generate a strong secret and store it as the Edge Function secret
+   `CLEANUP_SECRET` (Supabase Dashboard → Edge Functions → Secrets).
+2. Store the **same value** in Vault (see `sql/schedule_cleanup.sql` for the
+   generation command):
 
 ```sql
-select vault.create_secret('<SERVICE_ROLE_KEY>', 'service_role_key');
+select vault.create_secret('<CLEANUP_SECRET>', 'cleanup_secret', 'cleanup-proofs cron');
 ```
 
-If `pg_cron` is unavailable on your plan, create the same daily schedule in the
-Supabase Dashboard under **Integrations → Cron**.
+3. Run `sql/schedule_cleanup.sql` in the SQL editor and replace
+   `<PROJECT_REF>` with your project reference.
+
+Do **not** put the service-role key in Vault for this job — the cron call only
+needs `CLEANUP_SECRET`, and the function reads the service key from its own
+server-side environment. If `pg_cron` is unavailable on your plan, create the
+same daily schedule in the Supabase Dashboard under **Integrations → Cron**.
 
 ---
 
@@ -268,3 +284,15 @@ Push to `master` triggers a new deployment. The build regenerates thumbnails bef
 | `401 Invalid API key` from backend scripts | Rotate/copy a fresh `SUPABASE_SERVICE_ROLE_KEY` into `.env` |
 | `permission denied for table ...` with the anon key | Expected under RLS; use the service-role key for scripts |
 | Raw keys like `restoreBtn` appear in the UI | The key is missing from `frontend/js/extra-i18n*.js` in both languages |
+
+---
+
+## Security
+
+This is a live application. Please report security issues privately instead of
+opening a public issue — see [SECURITY.md](SECURITY.md) for the reporting
+process and scope.
+
+## License
+
+Released under the [MIT License](LICENSE).

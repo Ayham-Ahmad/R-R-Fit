@@ -6,8 +6,10 @@
 //   * verified / rejected proofs  -> image removed 3 days after the decision
 //   * unreviewed proofs           -> image removed 14 days after completion
 //
-// Only the service role (or a caller with CLEANUP_SECRET) may run this job.
-// Deploy with: supabase functions deploy cleanup-proofs
+// Only a caller with CLEANUP_SECRET or a configured server-side service key
+// may run this job. Never trust a JWT payload decoded from a request — it is
+// unsigned and can be forged. Deploy with:
+//   supabase functions deploy cleanup-proofs --no-verify-jwt
 // Schedule it with the SQL in sql/schedule_cleanup.sql.
 
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
@@ -36,19 +38,6 @@ function json(status: number, body: Record<string, unknown>) {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
   });
-}
-
-function decodeJwtRole(token: string): string {
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return "";
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
-    const parsed = JSON.parse(atob(padded));
-    return String(parsed.role || "");
-  } catch {
-    return "";
-  }
 }
 
 function collectSecretKeys(): string[] {
@@ -100,12 +89,12 @@ function authorize(request: Request): { ok: boolean; reason?: string } {
     };
   }
 
+  // Exact match against keys configured on the server. A JWT payload decoded
+  // from the request is NOT evidence of authority: anyone can craft one.
   for (const key of collectSecretKeys()) {
     if (apiKey && apiKey === key) return { ok: true };
     if (token && token === key) return { ok: true };
   }
-
-  if (decodeJwtRole(token) === "service_role") return { ok: true };
 
   return { ok: false, reason: "BAD_CREDENTIALS" };
 }

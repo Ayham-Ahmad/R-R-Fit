@@ -37,6 +37,10 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Generated ad media and local copy scripts (large binaries / working files)
+/assets/ad/
+rr-fit-vo-clips.txt
+
 # Logs
 *.log
 npm-debug.log*
