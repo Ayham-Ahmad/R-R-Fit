@@ -1,5 +1,6 @@
--- R&R Fit - Row Level Security
--- Run after backend/supabase/schema.sql.
+-- R&R Fit - consolidated Row Level Security snapshot.
+-- This file is documentation only. Apply backend/supabase/migrations/ in
+-- filename order with `supabase db push` or `npm run backend:apply`.
 begin;
 
 alter table public.profiles enable row level security;
@@ -223,6 +224,7 @@ to authenticated
 with check (
   bucket_id = 'workout-proofs'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[2] ~ '^[0-9a-fA-F-]{36}-[0-9]+[.](webp|jpg)$'
 );
 
 drop policy if exists "workout_proofs_read_scope" on storage.objects;

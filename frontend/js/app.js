@@ -4,10 +4,12 @@ import logoUrl from "../assets/logo.png";
 import { createDrawingAvatar, createStickmanGif } from "./graphics.js";
 import {
   DAY_KEYS,
+  DEFAULT_PLATFORM_SETTINGS,
   SUPABASE_CONFIGURED,
   getPlatformSettings,
   onAuthStateChange
 } from "../../api/client.js";
+import { errorI18nKey } from "../../api/errors.js";
 import {
   getCurrentAuth,
   login,
@@ -70,26 +72,7 @@ const VIEW_KEY = "rr_fit_view";
 const DEFAULT_LANG = (env.VITE_DEFAULT_LANG || env.VITE_DEFAULT_LANGUAGE) === "en" ? "en" : "ar";
 const DEFAULT_THEME = ["v1", "v2", "v3"].includes(env.VITE_DEFAULT_THEME) ? env.VITE_DEFAULT_THEME : "v1";
 const THEME_KEYS = ["v1", "v2", "v3"];
-const PRESET_KEYS = ["squat", "hipthrust", "plank", "latpulldown", "shoulderpress", "cardio"];
-const DEFAULT_SETTINGS = {
-  websiteNameEn: "R&R Fit",
-  websiteNameAr: "رنا رويال فتنيس",
-  coachNameEn: "Coach",
-  coachNameAr: "المدربة",
-  coachEmail: "",
-  coachPhone: "",
-  whatsappPhone: "",
-  coachBioEn: "",
-  coachBioAr: "",
-  coachAvatarPath: null,
-  coachLinks: [],
-  leaderboardEnabled: true,
-  leaderboardPublished: true,
-  strictVerification: true,
-  leaderboardStage: "published",
-  rewardTitleEn: "One extra free fitness class",
-  rewardTitleAr: "حصة تدريبية مجانية إضافية واحدة"
-};
+const DEFAULT_SETTINGS = { ...DEFAULT_PLATFORM_SETTINGS };
 
 function readPreference(key, fallback) {
   try {
@@ -251,11 +234,6 @@ function coachName() {
   return state.lang === "ar"
     ? getSettings().coachNameAr || DEFAULT_SETTINGS.coachNameAr
     : getSettings().coachNameEn || DEFAULT_SETTINGS.coachNameEn;
-}
-
-function rewardTitle() {
-  const settings = state.leaderboard?.settings || getSettings();
-  return state.lang === "ar" ? settings.rewardTitleAr : settings.rewardTitleEn;
 }
 
 function roleLabel(role) {
@@ -465,9 +443,6 @@ function errorMessage(error) {
     NO_LIVE_WEEK: "errNoLiveWeek",
     WORKOUT_COMPLETED_LOCKED: "errWorkoutLocked",
     DAY_HAS_COMPLETED_WORKOUTS: "errDayCompleted",
-    PROOF_WEIGHTS_REQUIRED: "errProofWeights",
-    PROOF_SUMMARY_REQUIRED: "errProofSummary",
-    PROOF_RPE_INVALID: "errProofRpe",
     PROOF_FILE_INVALID: "errProofFileType",
     PROOF_FILE_TYPE_INVALID: "errProofFileType",
     PROOF_FILE_UNSUPPORTED: "errProofUnsupported",
@@ -477,6 +452,13 @@ function errorMessage(error) {
     EXERCISE_MEDIA_TYPE_INVALID: "errExerciseMediaType",
     EXERCISE_MEDIA_TOO_LARGE: "errExerciseMediaSize",
     EXERCISE_NAMES_REQUIRED: "errExerciseNames",
+    EXERCISE_PRESET_INVALID: "errExercisePreset",
+    EXERCISE_MEDIA_PATH_INVALID: "errExerciseMediaPath",
+    MISSING_TRAINEE: "errMissingTrainee",
+    INVALID_LEADERBOARD_STAGE: "errLeaderboardStage",
+    SETTINGS_PATCH_REQUIRED: "errSettingsPatchRequired",
+    USER_REQUIRED: "errUserRequired",
+    UNKNOWN_ACTION: "errGeneric",
     WEAK_PASSWORD: "errPasswordLength",
     PASSWORD_LENGTH: "errPasswordLength",
     PASSWORD_MISMATCH: "errPasswordMismatch",
@@ -502,20 +484,15 @@ function errorMessage(error) {
     PASSWORD_RESET_FAILED: "errResetPasswordFailed"
   }[code];
   if (key) return t(key);
-  if (/Invalid login credentials/i.test(code)) return t("errInvalidCredentials");
-  if (/JWT expired|session.*expired/i.test(code)) return t("errSessionExpired");
-  if (/Finalized workout results|Completed workouts cannot be deleted|Completed or skipped workouts/i.test(code)) return t("errWorkoutLocked");
-  if (/Proof weights, summary, effort, and screenshot are required|Proof screenshot is required/i.test(code)) return t("errProofFileRequired");
-  if (/Failed to send a request|FunctionsFetchError|Failed to fetch|NetworkError/i.test(code)) return t("errNetwork");
-  if (/admin-users|Edge Function/i.test(code)) return t("errEdge");
-  if (/duplicate key|already exists/i.test(code)) return t("errEmailExists");
-  return t("errGeneric");
+  return t(errorI18nKey(code));
 }
 
 function applyDocumentPreferences() {
   document.documentElement.lang = state.lang;
   document.documentElement.dir = state.lang === "ar" ? "rtl" : "ltr";
   document.documentElement.dataset.theme = state.theme;
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.content = `${brandName()} - ${t("landingMetaTitle")}`;
   if (state.profile?.role) {
     document.documentElement.dataset.role = state.profile.role;
   } else {
@@ -547,6 +524,11 @@ function loadSavedView() {
   } catch {
     return "";
   }
+}
+
+function setView(view) {
+  state.view = view;
+  saveView(view);
 }
 
 function captureFocus() {
@@ -692,13 +674,14 @@ function renderWorkspaceError() {
 
 function renderSetup() {
   applyDocumentPreferences();
+  document.title = brandName();
   document.getElementById("app").innerHTML = `
     <div class="setup-shell">
       <div class="card setup-card">
         <div class="brand-box">
           <div class="brand-logo brand-logo-image"><img src="${logoUrl}" alt="" /></div>
           <div>
-            <div class="brand-title">R&amp;R Fit</div>
+            <div class="brand-title">${esc(brandName())}</div>
             <div class="brand-subtitle">${t("brandTagline")}</div>
           </div>
         </div>
@@ -946,11 +929,6 @@ async function refreshWorkspaceData() {
   renderApp();
 }
 
-async function refreshLeaderboardData() {
-  state.leaderboard = await loadLeaderboard({ weekId: state.selectedWeekId });
-  renderApp();
-}
-
 async function refreshProfileState() {
   const profile = await refreshProfile();
   if (profile) state.profile = profile;
@@ -958,6 +936,7 @@ async function refreshProfileState() {
 
 function renderLanding() {
   const brand = brandName();
+  const brandCopy = (key) => esc(t(key).replaceAll("{brand}", brand));
   const languageLabel = state.lang === "ar" ? "English" : "العربية";
   const year = new Date().getFullYear();
   const weekDays = [
@@ -1001,7 +980,7 @@ function renderLanding() {
             <div class="landing-hero-copy">
               <span class="landing-kicker"><i></i>${t("landingEyebrow")}</span>
               <h1>${t("landingHeroTitle")}</h1>
-              <p>${t("landingHeroBody")}</p>
+              <p>${brandCopy("landingHeroBody")}</p>
               <div class="landing-hero-actions">
                 <button class="btn btn-primary landing-primary" type="button" data-auth-mode="login">
                   <span>${t("landingStartBtn")}</span>${icon("arrow")}
@@ -1054,12 +1033,12 @@ function renderLanding() {
           </div>
         </section>
 
-        <section class="landing-section landing-method" id="method">
+        <section class="landing-section" id="method">
           <div class="landing-section-inner">
             <div class="landing-section-head">
               <span class="landing-label">${t("landingMethodLabel")}</span>
               <h2>${t("landingMethodTitle")}</h2>
-              <p>${t("landingMethodBody")}</p>
+              <p>${brandCopy("landingMethodBody")}</p>
             </div>
             <div class="landing-feature-grid">
               <article class="landing-feature">
@@ -1164,7 +1143,7 @@ function renderLanding() {
             <div>
               <span class="landing-label">${t("landingFinalEyebrow")}</span>
               <h2>${t("landingFinalTitle")}</h2>
-              <p>${t("landingFinalBody")}</p>
+              <p>${brandCopy("landingFinalBody")}</p>
             </div>
             <div class="landing-final-actions">
               <button class="btn btn-secondary" type="button" data-auth-mode="login">${t("landingFinalBtn")}</button>
@@ -1182,7 +1161,7 @@ function renderLanding() {
           </div>
           <p class="landing-footer-note">${t("landingFooterNote")}</p>
           <div class="landing-footer-contact">
-            <a href="mailto:ayhamshahada03@gmail.com">ayhamshahada03@gmail.com</a>
+            <button class="link-btn" type="button" data-action="copy-text" data-copy-value="ayhamshahada03@gmail.com">ayhamshahada03@gmail.com</button>
             <a href="tel:+966501679896">+966 501679896</a>
           </div>
           <div class="landing-footer-actions">
@@ -1578,7 +1557,7 @@ function renderCoachDashboard() {
   const completion = percent(completedWorkouts, totalWorkouts);
   return `
     <div class="view-stack">
-      <section class="welcome-card coach-welcome">
+      <section class="welcome-card">
         <div>
           <span class="eyebrow">${weekLabel(workspace.currentWeek)}</span>
           <h2>${t("coachWelcomeTitle")}</h2>
@@ -1987,7 +1966,7 @@ function renderLeaderboardManagement() {
                 <span class="archive-week">${contextBilingual(winner, "weekEn", "weekAr")}</span>
               </div>
               <strong>${contextBilingual(winner, "nameEn", "nameAr")}</strong>
-              <span>${formatNumber(winner.verified)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
+              <span>${formatNumber(winner.completed)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
               <small>${contextBilingual(winner, "rewardEn", "rewardAr")}</small>
             </div>
           `).join("") : emptyState(t("noWinnersTitle"), t("noWinnersBody"))}
@@ -2243,7 +2222,7 @@ function renderCoachProfileModal() {
     contacts.push(`<a class="btn btn-primary btn-sm" href="https://wa.me/${esc(String(coach.whatsappPhone).replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>`);
   }
   if (coach.email) {
-    contacts.push(`<a class="btn btn-secondary btn-sm" href="mailto:${esc(coach.email)}">${t("contactCoachBtn")}</a>`);
+    contacts.push(`<button class="btn btn-secondary btn-sm" type="button" data-action="copy-text" data-copy-value="${esc(coach.email)}">${t("contactCoachBtn")}</button>`);
   }
 
   openModal(`
@@ -2389,7 +2368,7 @@ function renderTraineeSchedule() {
       actions.push(`<a class="btn btn-primary" href="https://wa.me/${esc(String(whatsappPhone).replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>`);
     }
     if (coachEmail) {
-      actions.push(`<a class="btn btn-secondary" href="mailto:${esc(coachEmail)}">${t("contactCoachBtn")}</a>`);
+      actions.push(`<button class="btn btn-secondary" type="button" data-action="copy-text" data-copy-value="${esc(coachEmail)}">${t("contactCoachBtn")}</button>`);
     }
     actions.push(`<button class="btn btn-secondary" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>`);
     return `
@@ -2460,7 +2439,7 @@ function renderTraineeStatusCard() {
       </div>
       <div class="modal-actions">
         ${coach?.whatsappPhone ? `<a class="btn btn-primary" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("messageCoachBtn")}</a>` : ""}
-        ${coachEmail ? `<a class="btn btn-secondary" href="mailto:${esc(coachEmail)}">${t("contactCoachBtn")}</a>` : ""}
+        ${coachEmail ? `<button class="btn btn-secondary" type="button" data-action="copy-text" data-copy-value="${esc(coachEmail)}">${t("contactCoachBtn")}</button>` : ""}
         <button class="btn btn-secondary" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>
       </div>
     </section>
@@ -2642,7 +2621,7 @@ function renderTraineeLeaderboard() {
             <span class="avatar avatar-xl"><img src="${winner.trainee.avatarUrl}" alt="" /></span>
             <span class="eyebrow">${t("firstPlaceLabel")}</span>
             <h3>${contextBilingual(winner.trainee, "nameEn", "nameAr")}</h3>
-            <p>${formatNumber(winner.verified)} ${t("verifiedWorkoutsShort")} · ${formatNumber(winner.score)} ${t("pointsShort")}</p>
+            <p>${formatNumber(winner.completed)} ${t("verifiedWorkoutsShort")} · ${formatNumber(winner.score)} ${t("pointsShort")}</p>
           ` : `<div class="winner-empty">${icon("trophy")}<p>${t("noWinnerYet")}</p></div>`}
         </div>
       </section>
@@ -2674,7 +2653,7 @@ function renderTraineeLeaderboard() {
             <div class="archive-card">
               <div class="archive-top"><span class="avatar"><img src="${winner.avatarUrl}" alt="" /></span><span class="archive-week">${contextBilingual(winner, "weekEn", "weekAr")}</span></div>
               <strong>${contextBilingual(winner, "nameEn", "nameAr")}</strong>
-              <span>${formatNumber(winner.verified)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
+              <span>${formatNumber(winner.completed)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
               <small>${contextBilingual(winner, "rewardEn", "rewardAr")}</small>
             </div>
           `).join("") : emptyState(t("noWinnersTitle"), t("noWinnersBody"))}
@@ -2692,7 +2671,7 @@ function renderTraineeSettings() {
   return `
     <div class="view-stack settings-stack">
       <section class="card">
-        <div class="card-header"><div><h2>${t("traineeProfileTitle")}</h2><p>${t("traineeProfileSub")}</p></div><span class="page-date">${new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></div>
+        <div class="card-header"><div><h2>${t("traineeProfileTitle")}</h2><p>${t("traineeProfileSub")}</p></div></div>
         <form data-form="trainee-profile" class="form-grid">
           <div class="form-group">
             <label class="form-label" for="traineeNameEn">${t("nameEnLabel")}</label>
@@ -2729,7 +2708,7 @@ function renderTraineeSettings() {
           <div class="activity-copy"><strong>${esc((state.lang === "ar" ? (coach?.nameAr || coach?.name_ar) : (coach?.nameEn || coach?.name_en)) || coachName())}</strong><span>${esc(coach?.email || "")}</span></div>
           <div class="contact-actions">
             ${coach?.whatsappPhone ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${esc(coach.whatsappPhone.replace(/[^\d]/g, ""))}" target="_blank" rel="noopener">${t("whatsappBtn")}</a>` : ""}
-            ${coach?.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${esc(coach.email)}">${t("emailBtn")}</a>` : ""}
+            ${coach?.email ? `<button class="btn btn-secondary btn-sm" type="button" data-action="copy-text" data-copy-value="${esc(coach.email)}">${t("emailBtn")}</button>` : ""}
             <button class="btn btn-primary btn-sm" type="button" data-action="open-coach-profile">${t("viewCoachProfileBtn")}</button>
           </div>
         </div>
@@ -2776,6 +2755,8 @@ function openModal(content, wide = false) {
   box.className = `modal-box${wide ? " modal-wide" : ""}`;
   box.setAttribute("aria-label", t("dialogLabel"));
   box.innerHTML = content;
+  const form = box.querySelector("form");
+  if (form) form.initialSnapshot = readFormSnapshot(form);
   backdrop.classList.add("open");
   backdrop.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
@@ -2803,6 +2784,51 @@ function closeModal() {
   state.coachProfileCertificates = [];
   state.modalFile = null;
   state.lastCreated = null;
+}
+
+function formFieldValue(element) {
+  if (element instanceof HTMLInputElement && element.type === "checkbox") return element.checked;
+  if (element instanceof HTMLInputElement && element.type === "radio") return element.checked ? element.value : "";
+  if (element instanceof HTMLInputElement && element.type === "file") return element.files?.length ? "__selected__" : "";
+  return element.value;
+}
+
+function readFormSnapshot(form) {
+  const snapshot = {};
+  if (!form) return snapshot;
+  Array.from(form.elements).forEach((element, index) => {
+    if (!(element instanceof HTMLElement)) return;
+    if (element instanceof HTMLButtonElement) return;
+    if (element instanceof HTMLInputElement && ["hidden", "submit", "button", "reset"].includes(element.type)) return;
+    if (element.dataset?.noSnapshot === "true") return;
+    const isChoice = element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type);
+    const key = (element.name || element.id || "field") + (isChoice ? `#${index}` : "");
+    snapshot[key] = formFieldValue(element);
+  });
+  return snapshot;
+}
+
+function formHasUnsavedChanges(form) {
+  if (!form || form.dataset.form === "confirm") return false;
+  const initial = form.initialSnapshot;
+  if (!initial) return false;
+  return JSON.stringify(readFormSnapshot(form)) !== JSON.stringify(initial);
+}
+
+function requestCloseModal() {
+  const box = document.getElementById("appModalContent");
+  const form = box?.querySelector("form");
+  if (formHasUnsavedChanges(form)) {
+    openConfirm({
+      title: t("confirmDiscardTitle") || "Discard changes?",
+      body: t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?",
+      label: t("discardBtn") || "Discard",
+      tone: "danger",
+      action: () => closeModal()
+    });
+    return;
+  }
+  closeModal();
 }
 
 function resetProofState() {
@@ -3263,7 +3289,7 @@ async function openReviewProofModal(traineeId, workoutId) {
     const trainee = getCoachTrainee(traineeId);
     state.reviewProof = { traineeId, workoutId, log };
     openModal(`
-      <div class="review-modal">
+      <div>
         ${modalHead(t("reviewProofTitle"), `${trainee ? esc(state.lang === "ar" ? trainee.nameAr : trainee.nameEn) : ""} · ${dayName(log.dayKey)}`)}
         <div class="modal-body">
           <div class="review-grid">
@@ -3417,7 +3443,7 @@ async function handleFormSubmit(form) {
         phone: value("coachPhone")
       });
       closeModal();
-      state.view = "users";
+      setView("users");
       await refreshWorkspaceData();
       showToast(t("coachCreatedToast"));
       openCredentialsModal({ email: value("coachEmail"), password: String(data.get("password") || "") });
@@ -3527,7 +3553,7 @@ async function handleFormSubmit(form) {
         leaderboardEnabled: data.has("leaderboardEnabled"),
         leaderboardPublished: data.has("leaderboardPublished"),
         strictVerification: true,
-        leaderboardStage: data.has("leaderboardPublished") ? "published" : settings.leaderboardStage || "draft",
+        leaderboardStage: data.has("leaderboardPublished") ? "published" : (settings.leaderboardStage || "closed"),
         rewardTitleEn: value("rewardTitleEn"),
         rewardTitleAr: value("rewardTitleAr")
       });
@@ -3585,7 +3611,6 @@ async function handleFormSubmit(form) {
         repsAr: value("newExerciseRepsAr"),
         restEn: value("newExerciseRestEn"),
         restAr: value("newExerciseRestAr"),
-        presetKey: null,
         mediaFile: state.modalFile
       });
       closeModal();
@@ -3764,9 +3789,15 @@ async function copyText(text) {
     area.style.opacity = "0";
     document.body.appendChild(area);
     area.select();
-    document.execCommand("copy");
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    }
     area.remove();
-    showToast(t("copiedToast"));
+    if (copied) showToast(t("copiedToast"));
+    else showToast(t("errGeneric"), "error");
   }
 }
 
@@ -3804,8 +3835,7 @@ function bindEvents() {
     const action = actionButton.dataset.action;
 
     if (action === "navigate") {
-      state.view = actionButton.dataset.view;
-      saveView(state.view);
+      setView(actionButton.dataset.view);
       renderApp();
       return;
     }
@@ -3899,7 +3929,7 @@ function bindEvents() {
       return;
     }
     if (action === "close-modal") {
-      closeModal();
+      requestCloseModal();
       return;
     }
     if (action === "reload-page") {
@@ -3980,7 +4010,7 @@ function bindEvents() {
     }
     if (action === "select-trainee") {
       state.selectedTraineeId = actionButton.dataset.traineeId;
-      state.view = "trainees";
+      setView("trainees");
       renderApp();
       return;
     }
@@ -4105,11 +4135,7 @@ function bindEvents() {
         label: t("restoreBtn") || "Restore",
         tone: "primary",
         action: async () => {
-          if (typeof restoreExercise === "function") {
-            await restoreExercise(actionButton.dataset.exerciseId);
-          } else {
-            await updateExercise(actionButton.dataset.exerciseId, { isActive: true });
-          }
+          await restoreExercise(actionButton.dataset.exerciseId);
           await refreshWorkspaceData();
           showToast(t("exerciseRestoredToast") || "Exercise restored");
         }
@@ -4212,6 +4238,11 @@ function bindEvents() {
     }
     if (action === "copy-email" || action === "copy-password") {
       const value = action === "copy-email" ? state.lastCreated?.email : state.lastCreated?.password;
+      if (value) copyText(value);
+      return;
+    }
+    if (action === "copy-text") {
+      const value = actionButton.dataset.copyValue;
       if (value) copyText(value);
     }
   });
@@ -4378,28 +4409,7 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && document.getElementById("appModalBackdrop")?.classList.contains("open")) {
-      const box = document.getElementById("appModalContent");
-      const form = box?.querySelector("form");
-      if (form) {
-        const data = new FormData(form);
-        let hasValue = false;
-        for (const [key, value] of data.entries()) {
-          if (key === "password" && String(value).length > 0) { hasValue = true; break; }
-          if (typeof value === "string" && value.trim().length > 0 && key !== "action") { hasValue = true; break; }
-        }
-        if (hasValue) {
-          openConfirm({
-            title: t("confirmDiscardTitle") || "Discard changes?",
-            body: t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?",
-            label: t("discardBtn") || "Discard",
-            tone: "danger",
-            action: () => closeModal()
-          });
-          event.preventDefault();
-          return;
-        }
-      }
-      closeModal();
+      requestCloseModal();
     }
   });
 
@@ -4426,29 +4436,7 @@ function bindEvents() {
   }, true);
 
   document.getElementById("appModalBackdrop")?.addEventListener("click", (event) => {
-    if (event.target.id === "appModalBackdrop") {
-      const box = document.getElementById("appModalContent");
-      const form = box?.querySelector("form");
-      if (form) {
-        const data = new FormData(form);
-        let hasValue = false;
-        for (const [key, value] of data.entries()) {
-          if (key === "password" && String(value).length > 0) { hasValue = true; break; }
-          if (typeof value === "string" && value.trim().length > 0 && key !== "action") { hasValue = true; break; }
-        }
-        if (hasValue) {
-          openConfirm({
-            title: t("confirmDiscardTitle") || "Discard changes?",
-            body: t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?",
-            label: t("discardBtn") || "Discard",
-            tone: "danger",
-            action: () => closeModal()
-          });
-          return;
-        }
-      }
-      closeModal();
-    }
+    if (event.target.id === "appModalBackdrop") requestCloseModal();
   });
 }
 

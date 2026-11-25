@@ -1,10 +1,15 @@
 import {
   getPlatformSettings,
+  getProofSignedUrl,
   getWeeks,
+  mapArchive,
   requireSupabase,
-  unwrap
+  unwrap,
+  updatePlatformSettings
 } from "./client.js";
 import { createDrawingAvatar } from "../frontend/js/graphics.js";
+
+const LEADERBOARD_STAGES = new Set(["calculating", "published", "closed"]);
 
 function mapRpcEntry(row) {
   return {
@@ -29,24 +34,6 @@ function mapRpcEntry(row) {
   };
 }
 
-function mapArchive(row) {
-  return {
-    weekEn: row.week_en,
-    weekAr: row.week_ar,
-    traineeId: row.trainee_id,
-    nameEn: row.name_en || "",
-    nameAr: row.name_ar || "",
-    avatarStyle: row.avatar_style || "sara",
-    avatarUrl: createDrawingAvatar(row.avatar_style || "sara"),
-    completed: Number(row.completed) || 0,
-    total: Number(row.total) || 0,
-    percent: Number(row.percent) || 0,
-    score: Number(row.score) || 0,
-    rewardEn: row.reward_en,
-    rewardAr: row.reward_ar
-  };
-}
-
 export async function loadLeaderboard({ weekId = null } = {}) {
   const client = requireSupabase();
   const settings = await getPlatformSettings();
@@ -62,7 +49,7 @@ export async function loadLeaderboard({ weekId = null } = {}) {
   const entries = (unwrap(standingsResult, "Unable to load weekly standings") || []).map(mapRpcEntry);
   const archiveRows = unwrap(archiveResult, "Unable to load previous winners") || [];
   const activeWeek = weekId
-    ? weeks.find((week) => week.id === weekId)
+    ? weeks.find((week) => week.id === weekId) || null
     : weeks.find((week) => week.isLive) || weeks[0] || null;
 
   return {
@@ -108,11 +95,7 @@ export async function getProofLogs(traineeId) {
 }
 
 export async function getProofScreenshotUrl(path) {
-  if (!path) return null;
-  const client = requireSupabase();
-  const { data, error } = await client.storage.from("workout-proofs").createSignedUrl(path, 300);
-  if (error) throw new Error(error.message);
-  return data?.signedUrl || null;
+  return getProofSignedUrl(path);
 }
 
 export async function reviewWorkoutProof({ workoutId, decision, note = "" }) {
@@ -127,24 +110,36 @@ export async function reviewWorkoutProof({ workoutId, decision, note = "" }) {
       : note || null
   };
 
-  const result = unwrap(
-    await client
-      .from("scheduled_workouts")
-      .update(update)
-      .eq("id", workoutId)
-      .eq("status", "completed")
-      .select("*")
-      .single(),
-    "Unable to review the workout proof"
-  );
+  let result;
+  try {
+    result = unwrap(
+      await client
+        .from("scheduled_workouts")
+        .update(update)
+        .eq("id", workoutId)
+        .eq("status", "completed")
+        .select("*")
+        .single(),
+      "Unable to review the workout proof"
+    );
+  } catch (error) {
+    if (error?.code === "PGRST116") throw new Error("PROOF_NOT_FOUND");
+    throw error;
+  }
 
-  const user = await client.auth.getUser();
-  const [{ data: traineeRow }] = await Promise.all([
-    client.from("profiles").select("name_en, name_ar").eq("id", result.trainee_id).maybeSingle()
-  ]);
+  const { data: authData, error: authError } = await client.auth.getUser();
+  if (authError) throw new Error(authError.message);
+  if (!authData?.user) throw new Error("AUTH_REQUIRED");
 
-  await client.from("activity_events").insert({
-    coach_id: user?.data?.user?.id || null,
+  const { data: traineeRow, error: traineeError } = await client
+    .from("profiles")
+    .select("name_en, name_ar")
+    .eq("id", result.trainee_id)
+    .maybeSingle();
+  if (traineeError) throw new Error(traineeError.message);
+
+  const { error: activityError } = await client.from("activity_events").insert({
+    coach_id: authData.user.id,
     trainee_id: result.trainee_id,
     badge_type: decision === "verified" ? "success" : "danger",
     text_en: decision === "verified"
@@ -154,26 +149,23 @@ export async function reviewWorkoutProof({ workoutId, decision, note = "" }) {
       ? `اعتمدت المدربة إثبات تمرين المتدربة ${traineeRow?.name_ar || ""}.`
       : `استبعدت المدربة إثبات تمرين غير موثق للمتدربة ${traineeRow?.name_ar || ""}.`
   });
+  if (activityError) throw new Error(activityError.message);
 
   return result;
 }
 
 export async function saveLeaderboardSettings(settings) {
-  const client = requireSupabase();
-  return unwrap(
-    await client
-      .from("platform_settings")
-      .update({
-        leaderboard_enabled: Boolean(settings.leaderboardEnabled),
-        leaderboard_published: Boolean(settings.leaderboardPublished),
-        strict_verification: Boolean(settings.strictVerification),
-        leaderboard_stage: settings.leaderboardStage || "published",
-        reward_title_en: settings.rewardTitleEn?.trim() || "",
-        reward_title_ar: settings.rewardTitleAr?.trim() || ""
-      })
-      .eq("id", 1)
-      .select("*")
-      .single(),
+  const stage = settings.leaderboardStage || "published";
+  if (!LEADERBOARD_STAGES.has(stage)) throw new Error("INVALID_LEADERBOARD_STAGE");
+  return updatePlatformSettings(
+    {
+      leaderboard_enabled: Boolean(settings.leaderboardEnabled),
+      leaderboard_published: Boolean(settings.leaderboardPublished),
+      strict_verification: Boolean(settings.strictVerification),
+      leaderboard_stage: stage,
+      reward_title_en: settings.rewardTitleEn?.trim() || "",
+      reward_title_ar: settings.rewardTitleAr?.trim() || ""
+    },
     "Unable to save leaderboard settings"
   );
 }

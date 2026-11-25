@@ -23,6 +23,20 @@ const CLEANUP_SECRET = Deno.env.get("CLEANUP_SECRET") || "";
 const REVIEWED_RETENTION_DAYS = 3;
 const UNREVIEWED_RETENTION_DAYS = 14;
 const BATCH_SIZE = 200;
+const MAX_BATCHES = 10;
+
+const CONFIGURED_ORIGINS = (Deno.env.get("APP_ORIGIN") || "")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+const DEFAULT_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  "https://r-r-fit.pages.dev"
+];
+const ALLOWED_ORIGINS = CONFIGURED_ORIGINS.length ? CONFIGURED_ORIGINS : DEFAULT_ORIGINS;
 
 type ProofRow = {
   id: string;
@@ -33,11 +47,28 @@ type ProofRow = {
   completed_at: string | null;
 };
 
-function json(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
-  });
+type CleanupTotals = {
+  reviewed: number;
+  unreviewed: number;
+  purged: number;
+  failed: number;
+  batches: number;
+  hasMore: boolean;
+};
+
+function corsHeadersFor(request: Request): Record<string, string> {
+  const origin = (request.headers.get("Origin") || "").replace(/\/$/, "");
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cleanup-secret",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json",
+    Vary: "Origin"
+  };
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
 }
 
 function collectSecretKeys(): string[] {
@@ -99,7 +130,7 @@ function authorize(request: Request): { ok: boolean; reason?: string } {
   return { ok: false, reason: "BAD_CREDENTIALS" };
 }
 
-async function runCleanup() {
+async function runCleanup(): Promise<CleanupTotals> {
   const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -107,84 +138,134 @@ async function runCleanup() {
   const now = Date.now();
   const reviewedCutoff = new Date(now - REVIEWED_RETENTION_DAYS * 86400000).toISOString();
   const unreviewedCutoff = new Date(now - UNREVIEWED_RETENTION_DAYS * 86400000).toISOString();
+  const reviewedCutoffMs = Date.parse(reviewedCutoff);
+  const unreviewedCutoffMs = Date.parse(unreviewedCutoff);
 
-  const reviewed = await client
-    .from("scheduled_workouts")
-    .select("id, trainee_id, proof_screenshot_path, verification_status, verified_at, completed_at")
-    .not("proof_screenshot_path", "is", null)
-    .in("verification_status", ["verified", "rejected"])
-    .lte("verified_at", reviewedCutoff)
-    .limit(BATCH_SIZE);
-
-  if (reviewed.error) throw new Error(reviewed.error.message);
-
-  const unreviewed = await client
-    .from("scheduled_workouts")
-    .select("id, trainee_id, proof_screenshot_path, verification_status, verified_at, completed_at")
-    .not("proof_screenshot_path", "is", null)
-    .eq("verification_status", "pending_review")
-    .lte("completed_at", unreviewedCutoff)
-    .limit(BATCH_SIZE);
-
-  if (unreviewed.error) throw new Error(unreviewed.error.message);
-
-  const rows = [...(reviewed.data || []), ...(unreviewed.data || [])] as ProofRow[];
-  if (!rows.length) {
-    return { reviewed: 0, unreviewed: 0, purged: 0, hasMore: false };
-  }
-
-  const paths = rows.map((row) => row.proof_screenshot_path).filter(Boolean);
-  if (paths.length) {
-    // Storage API remove is idempotent enough; ignore missing objects.
-    await client.storage.from("workout-proofs").remove(paths);
-  }
-
-  let purged = 0;
-  for (const row of rows) {
-    const { error } = await client
-      .from("scheduled_workouts")
-      .update({
-        proof_screenshot_path: null,
-        proof_purged_at: new Date().toISOString()
-      })
-      .eq("id", row.id)
-      .eq("proof_screenshot_path", row.proof_screenshot_path);
-    if (!error) purged += 1;
-  }
-
-  return {
-    reviewed: reviewed.data?.length || 0,
-    unreviewed: unreviewed.data?.length || 0,
-    purged,
-    hasMore: (reviewed.data?.length || 0) >= BATCH_SIZE || (unreviewed.data?.length || 0) >= BATCH_SIZE
+  const totals: CleanupTotals = {
+    reviewed: 0,
+    unreviewed: 0,
+    purged: 0,
+    failed: 0,
+    batches: 0,
+    hasMore: false
   };
+
+  const selectFields =
+    "id, trainee_id, proof_screenshot_path, verification_status, verified_at, completed_at";
+
+  for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
+    totals.batches = batch + 1;
+
+    const reviewed = await client
+      .from("scheduled_workouts")
+      .select(selectFields)
+      .not("proof_screenshot_path", "is", null)
+      .is("proof_purged_at", null)
+      .in("verification_status", ["verified", "rejected"])
+      .or(`verified_at.lte.${reviewedCutoff},completed_at.lte.${reviewedCutoff}`)
+      .limit(BATCH_SIZE);
+
+    if (reviewed.error) throw new Error(reviewed.error.message);
+
+    const unreviewed = await client
+      .from("scheduled_workouts")
+      .select(selectFields)
+      .not("proof_screenshot_path", "is", null)
+      .is("proof_purged_at", null)
+      .eq("verification_status", "pending_review")
+      .lte("completed_at", unreviewedCutoff)
+      .limit(BATCH_SIZE);
+
+    if (unreviewed.error) throw new Error(unreviewed.error.message);
+
+    const reviewedRows = ((reviewed.data || []) as ProofRow[]).filter((row) => {
+      const decisionAt = Date.parse(row.verified_at || row.completed_at || "");
+      return Number.isFinite(decisionAt) && decisionAt <= reviewedCutoffMs;
+    });
+    const unreviewedRows = ((unreviewed.data || []) as ProofRow[]).filter((row) => {
+      const completedAt = Date.parse(row.completed_at || "");
+      return Number.isFinite(completedAt) && completedAt <= unreviewedCutoffMs;
+    });
+
+    const seen = new Set<string>();
+    const rows = [...reviewedRows, ...unreviewedRows].filter((row) => {
+      if (seen.has(row.id)) return false;
+      seen.add(row.id);
+      return true;
+    });
+
+    if (!rows.length) {
+      totals.hasMore = false;
+      break;
+    }
+
+    const paths = rows.map((row) => row.proof_screenshot_path).filter(Boolean);
+    const { error: removeError } = paths.length
+      ? await client.storage.from("workout-proofs").remove(paths)
+      : { error: null };
+
+    if (removeError) {
+      throw new Error("Unable to remove proof objects from storage");
+    }
+
+    for (const row of rows) {
+      const { error } = await client
+        .from("scheduled_workouts")
+        .update({
+          proof_screenshot_path: null,
+          proof_purged_at: new Date().toISOString()
+        })
+        .eq("id", row.id)
+        .eq("proof_screenshot_path", row.proof_screenshot_path);
+      if (error) {
+        totals.failed += 1;
+      } else {
+        totals.purged += 1;
+      }
+    }
+
+    totals.reviewed += reviewedRows.length;
+    totals.unreviewed += unreviewedRows.length;
+
+    const hasMore = reviewedRows.length >= BATCH_SIZE || unreviewedRows.length >= BATCH_SIZE;
+    if (!hasMore) {
+      totals.hasMore = false;
+      break;
+    }
+
+    if (batch === MAX_BATCHES - 1) {
+      totals.hasMore = true;
+    }
+  }
+
+  return totals;
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response(null, { status: 204 });
+  const corsHeaders = corsHeadersFor(request);
+  const json = (status: number, body: Record<string, unknown>) =>
+    new Response(JSON.stringify(body), { status, headers: corsHeaders });
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
   if (request.method !== "POST") {
     return json(405, { error: "METHOD_NOT_ALLOWED" });
   }
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     return json(500, { error: "NOT_CONFIGURED", message: "Supabase service credentials are missing." });
   }
+
   const auth = authorize(request);
-  console.log("cleanup-proofs auth", {
-    ok: auth.ok,
-    reason: auth.reason || null,
-    hasCleanupSecret: Boolean(CLEANUP_SECRET),
-    secretKeyCount: collectSecretKeys().length
-  });
   if (!auth.ok) {
     return json(401, { error: "UNAUTHORIZED", reason: auth.reason || "UNKNOWN" });
   }
 
   try {
     const summary = await runCleanup();
-    console.log("cleanup-proofs result", summary);
     return json(200, { ok: true, ...summary });
   } catch (error) {
     console.error("cleanup-proofs failed", error);
-    return json(500, { error: "CLEANUP_FAILED", message: String(error?.message || error) });
+    return json(500, { error: "CLEANUP_FAILED" });
   }
 });

@@ -1,5 +1,6 @@
--- R&R Fit - PostgreSQL schema
--- Run this file first in the Supabase SQL editor or through backend/scripts/verify_db.py --apply.
+-- R&R Fit - consolidated PostgreSQL schema snapshot.
+-- This file is documentation only. Apply backend/supabase/migrations/ in
+-- filename order with `supabase db push` or `npm run backend:apply`.
 begin;
 
 create extension if not exists pgcrypto;
@@ -45,6 +46,21 @@ create index if not exists profiles_coach_idx on public.profiles(coach_id);
 create unique index if not exists profiles_email_unique_idx on public.profiles(lower(email)) where email is not null;
 create unique index if not exists profiles_single_coach_idx on public.profiles(role) where role = 'coach';
 
+update public.profiles
+set recurrence_days = array['mon', 'wed', 'thu', 'sat']::text[]
+where recurrence_days is null
+   or array_position(recurrence_days, null::text) is not null
+   or not (recurrence_days <@ array['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']::text[]);
+
+alter table public.profiles
+  drop constraint if exists profiles_recurrence_days_valid;
+alter table public.profiles
+  add constraint profiles_recurrence_days_valid
+  check (
+    recurrence_days <@ array['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']::text[]
+    and array_position(recurrence_days, null::text) is null
+  );
+
 alter table public.profiles alter column subscription_active set default false;
 alter table public.profiles alter column plan_unlocked set default false;
 
@@ -85,16 +101,32 @@ $$;
 
 create or replace function public.has_plan_access(p_user_id uuid)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select coalesce((
+begin
+  if p_user_id is null then
+    return false;
+  end if;
+
+  if auth.uid() is null then
+    return coalesce(auth.role() = 'service_role', false);
+  end if;
+
+  if p_user_id <> auth.uid()
+     and not public.is_admin()
+     and not public.can_manage_trainee(p_user_id) then
+    return false;
+  end if;
+
+  return coalesce((
     select subscription_active and plan_unlocked
     from public.profiles
     where id = p_user_id
   ), false);
+end;
 $$;
 
 create or replace function public.can_manage_trainee(p_trainee_id uuid)
@@ -232,11 +264,13 @@ begin
   if v_request_role = 'service_role' or public.is_admin() then
     return new;
   end if;
+
   if new.website_name_en is distinct from old.website_name_en
      or new.website_name_ar is distinct from old.website_name_ar
      or new.main_coach_id is distinct from old.main_coach_id then
     raise exception 'Brand and coach assignment fields are managed by the admin';
   end if;
+
   return new;
 end;
 $$;
@@ -461,6 +495,22 @@ begin
     end if;
   end if;
 
+  if v_role in ('coach', 'admin') then
+    if new.verification_status in ('verified', 'rejected') then
+      if old.status not in ('pending', 'completed') then
+        raise exception 'Only submitted workout proof can be verified or rejected';
+      end if;
+      new.status = 'completed';
+      new.completed_at = coalesce(old.completed_at, new.completed_at, now());
+      new.verified_by = coalesce(auth.uid(), new.verified_by);
+      new.verified_at = coalesce(new.verified_at, now());
+    else
+      new.verified_by = null;
+      new.verified_at = null;
+    end if;
+    return new;
+  end if;
+
   if v_role <> 'admin' and old.status <> 'pending' then
     if new.trainee_id is distinct from old.trainee_id
        or new.exercise_id is distinct from old.exercise_id
@@ -481,25 +531,14 @@ begin
        or new.proof_summary_ar is distinct from old.proof_summary_ar
        or new.proof_screenshot_path is distinct from old.proof_screenshot_path
        or new.proof_channel is distinct from old.proof_channel
-       or new.completed_at is distinct from old.completed_at then
+       or new.completed_at is distinct from old.completed_at
+       or new.verification_status is distinct from old.verification_status
+       or new.verification_note is distinct from old.verification_note
+       or new.verified_by is distinct from old.verified_by
+       or new.verified_at is distinct from old.verified_at
+       or new.proof_purged_at is distinct from old.proof_purged_at then
       raise exception 'Finalized workout results are locked';
     end if;
-  end if;
-
-  if v_role in ('coach', 'admin') then
-    if new.verification_status in ('verified', 'rejected') then
-      if old.status not in ('pending', 'completed') then
-        raise exception 'Only submitted workout proof can be verified or rejected';
-      end if;
-      new.status = 'completed';
-      new.completed_at = coalesce(old.completed_at, new.completed_at, now());
-      new.verified_by = coalesce(auth.uid(), new.verified_by);
-      new.verified_at = coalesce(new.verified_at, now());
-    else
-      new.verified_by = null;
-      new.verified_at = null;
-    end if;
-    return new;
   end if;
 
   if auth.uid() is null or new.trainee_id is distinct from auth.uid() then
@@ -517,7 +556,11 @@ begin
      or new.rest_en is distinct from old.rest_en
      or new.rest_ar is distinct from old.rest_ar
      or new.notes_en is distinct from old.notes_en
-     or new.notes_ar is distinct from old.notes_ar then
+     or new.notes_ar is distinct from old.notes_ar
+     or new.verification_note is distinct from old.verification_note
+     or new.verified_by is distinct from old.verified_by
+     or new.verified_at is distinct from old.verified_at
+     or new.proof_purged_at is distinct from old.proof_purged_at then
     raise exception 'Workout assignment fields are managed by the coach';
   end if;
 
@@ -672,6 +715,21 @@ as $$
   );
 $$;
 
+-- These helpers are for policy evaluation, not public RPCs.
+revoke all on function public.current_user_role() from public;
+revoke all on function public.is_admin() from public;
+revoke all on function public.is_coach_or_admin() from public;
+revoke all on function public.has_plan_access(uuid) from public;
+revoke all on function public.can_manage_trainee(uuid) from public;
+revoke all on function public.is_proof_path_locked(text) from public;
+
+grant execute on function public.current_user_role() to authenticated, service_role;
+grant execute on function public.is_admin() to authenticated, service_role;
+grant execute on function public.is_coach_or_admin() to authenticated, service_role;
+grant execute on function public.has_plan_access(uuid) to authenticated, service_role;
+grant execute on function public.can_manage_trainee(uuid) to authenticated, service_role;
+grant execute on function public.is_proof_path_locked(text) to authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Activity feed and archived winners
 -- ---------------------------------------------------------------------------
@@ -692,6 +750,7 @@ create table if not exists public.leaderboard_previous_winners (
   week_id uuid references public.leaderboard_weeks(id) on delete set null,
   trainee_id uuid references public.profiles(id) on delete set null,
   completed integer not null default 0,
+  verified integer not null default 0,
   total integer not null default 0,
   percent integer not null default 0,
   score integer not null default 0,

@@ -1,2 +1,5 @@
-python-dotenv>=1.0,<2.0
-psycopg[binary]>=3.2,<4.0
+# Backend tooling for scripts/verify_db.py.
+# Supported Python range: >=3.11,<3.15 (verified on 3.14).
+# Install with: npm run backend:setup
+python-dotenv==1.2.4
+psycopg[binary]==3.3.6

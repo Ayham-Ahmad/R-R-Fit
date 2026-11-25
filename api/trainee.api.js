@@ -14,6 +14,12 @@ import {
   unwrap
 } from "./client.js";
 
+async function removeProofObject(client, path) {
+  if (!path) return;
+  const { error } = await client.storage.from("workout-proofs").remove([path]);
+  if (error) throw new Error(error.message);
+}
+
 export async function loadTraineeWorkspace() {
   const client = requireSupabase();
   const user = await getAuthUser();
@@ -84,6 +90,9 @@ export async function loadTraineeWorkspace() {
 export async function getTraineeCoachProfile() {
   const client = requireSupabase();
   const settings = await getPlatformSettings();
+  // Certificates are platform-wide coach content. Do not filter by
+  // main_coach_id: legacy rows and alternate coach accounts would disappear.
+  // RLS still limits reads to authenticated users.
   const rows =
     unwrap(
       await client
@@ -155,9 +164,7 @@ export async function submitWorkoutProof({
       "Unable to submit workout proof"
     );
   } catch (error) {
-    if (screenshotPath) {
-      await client.storage.from("workout-proofs").remove([screenshotPath]);
-    }
+    await removeProofObject(client, screenshotPath);
     throw error;
   }
 }
@@ -172,7 +179,16 @@ export async function submitWhatsAppProof({ workoutId, comment }) {
   const user = await getAuthUser();
   if (!user) throw new Error("AUTH_REQUIRED");
 
-  return unwrap(
+  const { data: existing, error: loadError } = await client
+    .from("scheduled_workouts")
+    .select("id, proof_screenshot_path")
+    .eq("id", workoutId)
+    .eq("trainee_id", user.id)
+    .maybeSingle();
+  if (loadError) throw new Error(loadError.message);
+  if (!existing) throw new Error("MISSING_WORKOUT");
+
+  const updated = unwrap(
     await client
       .from("scheduled_workouts")
       .update({
@@ -189,6 +205,10 @@ export async function submitWhatsAppProof({ workoutId, comment }) {
       .single(),
     "Unable to submit workout proof"
   );
+  // Switching channels makes the old screenshot orphaned, so remove it once
+  // the database no longer points at it.
+  await removeProofObject(client, existing.proof_screenshot_path);
+  return updated;
 }
 
 export async function markWorkoutSkipped(workoutId) {
@@ -205,14 +225,6 @@ export async function markWorkoutSkipped(workoutId) {
       .single(),
     "Unable to mark the workout as skipped"
   );
-}
-
-export async function getProofScreenshotUrl(path) {
-  if (!path) return null;
-  const client = requireSupabase();
-  const { data, error } = await client.storage.from("workout-proofs").createSignedUrl(path, 300);
-  if (error) throw new Error(error.message);
-  return data?.signedUrl || null;
 }
 
 export async function saveTraineeProfile({ nameEn, nameAr, goalEn, goalAr, phone }) {

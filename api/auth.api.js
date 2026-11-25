@@ -3,26 +3,33 @@ import {
   getAuthUser,
   getSession,
   getUserProfile,
-  normalizeApiError,
-  requireSupabase
+  requireSupabase,
+  throwApiError
 } from "./client.js";
+
+const VALID_ROLES = ["admin", "coach", "trainee"];
 
 async function reconcileProfileEmail(profileRow, authUser) {
   if (!profileRow || !authUser?.id) return profileRow;
   const authEmail = String(authUser.email || "").trim().toLowerCase();
   if (!authEmail) return profileRow;
-  if (String(profileRow.email || "").trim().toLowerCase() === authEmail) return profileRow;
+  const profileEmail = String(profileRow.email || "").trim().toLowerCase();
+  // Auth email changes are not confirmed until the user follows the emailed
+  // link, so only fill a blank profile email; never overwrite an existing one.
+  if (profileEmail === authEmail || profileEmail) return profileRow;
+
   const client = requireSupabase();
-  const { data } = await client
+  const { data, error } = await client
     .from("profiles")
     .update({ email: authEmail })
     .eq("id", authUser.id)
     .select("*")
-    .single();
+    .maybeSingle();
+  if (error) throw error;
   return data || profileRow;
 }
 
-export function normalizeProfile(profile) {
+function normalizeProfile(profile) {
   if (!profile) return null;
   return {
     ...profile,
@@ -36,6 +43,13 @@ export function normalizeProfile(profile) {
   };
 }
 
+async function loadValidatedProfile(userId, authUser) {
+  const profileRow = await reconcileProfileEmail(await getUserProfile(userId), authUser);
+  if (!profileRow) throw new Error("PROFILE_MISSING");
+  if (!VALID_ROLES.includes(profileRow.role)) throw new Error("INVALID_ROLE");
+  return normalizeProfile(profileRow);
+}
+
 export async function login({ email, password }) {
   try {
     const client = requireSupabase();
@@ -46,54 +60,55 @@ export async function login({ email, password }) {
     if (error) throw error;
     if (!data.session || !data.user) throw new Error("INVALID_CREDENTIALS");
 
-    const profileRow = await reconcileProfileEmail(await getUserProfile(data.user.id), data.user);
-    if (!profileRow) {
+    let profile;
+    try {
+      profile = await loadValidatedProfile(data.user.id, data.user);
+    } catch (error) {
       await client.auth.signOut();
-      throw new Error("PROFILE_MISSING");
-    }
-    if (!["admin", "coach", "trainee"].includes(profileRow.role)) {
-      await client.auth.signOut();
-      throw new Error("INVALID_ROLE");
+      throw error;
     }
 
     return {
       session: data.session,
       user: data.user,
-      profile: normalizeProfile(profileRow)
+      profile
     };
   } catch (error) {
-    throw new Error(normalizeApiError(error));
+    throwApiError(error);
   }
 }
 
 export async function logout() {
   const client = requireSupabase();
   const { error } = await client.auth.signOut();
-  if (error) throw new Error(normalizeApiError(error));
+  if (error) throwApiError(error);
 }
 
 export async function getCurrentAuth() {
   if (!SUPABASE_CONFIGURED) return { session: null, user: null, profile: null };
-  const session = await getSession();
-  if (!session?.user) return { session: null, user: null, profile: null };
-  const profileRow = await reconcileProfileEmail(await getUserProfile(session.user.id), session.user);
-  return {
-    session,
-    user: session.user,
-    profile: normalizeProfile(profileRow)
-  };
+  try {
+    const session = await getSession();
+    if (!session?.user) return { session: null, user: null, profile: null };
+    return {
+      session,
+      user: session.user,
+      profile: await loadValidatedProfile(session.user.id, session.user)
+    };
+  } catch (error) {
+    throwApiError(error);
+  }
 }
 
-export async function sendPasswordReset(email) {
+export async function sendPasswordReset(email, redirectTo) {
   try {
     const client = requireSupabase();
-    const { error } = await client.auth.resetPasswordForEmail(String(email || "").trim(), {
-      redirectTo: `${window.location.origin}/?mode=reset-password`
-    });
+    const target = redirectTo || (typeof window !== "undefined" ? `${window.location.origin}/?mode=reset-password` : "");
+    const options = target ? { redirectTo: target } : {};
+    const { error } = await client.auth.resetPasswordForEmail(String(email || "").trim(), options);
     if (error) throw error;
     return true;
   } catch (error) {
-    throw new Error(normalizeApiError(error));
+    throwApiError(error);
   }
 }
 
@@ -105,12 +120,13 @@ export async function updatePassword(password) {
     if (error) throw error;
     return true;
   } catch (error) {
-    throw new Error(normalizeApiError(error));
+    throwApiError(error);
   }
 }
 
 export async function refreshProfile() {
   const user = await getAuthUser();
-  const profileRow = await getUserProfile(user.id);
+  if (!user) return null;
+  const profileRow = await reconcileProfileEmail(await getUserProfile(user.id), user);
   return normalizeProfile(profileRow);
 }

@@ -2,11 +2,13 @@ import {
   getAuthUser,
   getLiveWeek,
   getPlatformSettings,
+  getUserProfile,
   getWeeks,
   invokeAccountFunction,
-  mapWeek,
   requireSupabase,
-  unwrap
+  setProfileAccess,
+  unwrap,
+  updatePlatformSettings
 } from "./client.js";
 
 function mapUser(row) {
@@ -33,6 +35,16 @@ function mapUser(row) {
       .map((part) => part[0]?.toUpperCase())
       .join("")
   };
+}
+
+// The edge function has used both userId and user.id over time; normalize them
+// into the shape the UI consumes.
+function mapAccountResult(result, fallbackEmail = "") {
+  const user = result?.user && typeof result.user === "object" ? result.user : {};
+  const id = user.id || result?.userId || null;
+  const email = user.email || result?.email || fallbackEmail;
+  if (!id) throw new Error("USER_CREATE_FAILED");
+  return { ...user, id, email };
 }
 
 export async function loadAdminWorkspace() {
@@ -78,7 +90,7 @@ export async function loadAdminWorkspace() {
     admins,
     coaches,
     trainees,
-    coach: coaches[0] || null,
+    coach: coaches.find((coach) => coach.id === settings.mainCoachId) || coaches[0] || null,
     currentWeek,
     weeks,
     stats: {
@@ -103,7 +115,7 @@ export async function createCoachAccount({ email, password, nameEn, nameAr, phon
     nameAr,
     phone
   });
-  return result.user;
+  return mapAccountResult(result, email);
 }
 
 export async function createTraineeAccount({ email, password, nameEn, nameAr, phone, goalEn, goalAr, coachId = null }) {
@@ -118,34 +130,37 @@ export async function createTraineeAccount({ email, password, nameEn, nameAr, ph
     goalAr,
     coachId
   });
-  return result.user;
+  return mapAccountResult(result, email);
 }
 
 export async function resetUserPassword(userId) {
-  if (!userId) throw new Error("USER_REQUIRED");
-  return invokeAccountFunction({
+  if (!userId) throw new Error("TARGET_INVALID");
+  const result = await invokeAccountFunction({
     action: "reset_password",
     targetUserId: userId
   });
+  if (!result || result.success !== true) throw new Error("PASSWORD_RESET_FAILED");
+  const user = mapAccountResult(result);
+  if (!user.email || !result.password) throw new Error("PASSWORD_RESET_FAILED");
+  return {
+    ...result,
+    userId: user.id,
+    user,
+    password: result.password
+  };
 }
 
 export async function setUserSubscription(userId, active) {
-  const client = requireSupabase();
-  return unwrap(
-    await client
-      .from("profiles")
-      .update({ subscription_active: Boolean(active), plan_unlocked: Boolean(active) })
-      .eq("id", userId)
-      .select("id, subscription_active, plan_unlocked")
-      .single(),
-    "Unable to update this user's access"
-  );
+  return setProfileAccess(userId, active);
 }
 
 export async function updateAdminProfile({ nameEn, nameAr, email }) {
   const client = requireSupabase();
   const user = await getAuthUser();
   if (!user) throw new Error("AUTH_REQUIRED");
+  const actor = await getUserProfile(user.id);
+  if (actor?.role !== "admin") throw new Error("ADMIN_REQUIRED");
+
   const nextEmail = email?.trim().toLowerCase() || user.email;
   let emailConfirmationRequired = false;
   let profileEmail = user.email || "";
@@ -177,19 +192,11 @@ export async function updateAdminProfile({ nameEn, nameAr, email }) {
 
 export async function saveAdminBrandSettings({ websiteNameEn, websiteNameAr }) {
   if (!websiteNameEn?.trim() || !websiteNameAr?.trim()) throw new Error("BRAND_NAMES_REQUIRED");
-  const client = requireSupabase();
-  return unwrap(
-    await client
-      .from("platform_settings")
-      .update({
-        website_name_en: websiteNameEn?.trim(),
-        website_name_ar: websiteNameAr?.trim()
-      })
-      .eq("id", 1)
-      .select("*")
-      .single(),
+  return updatePlatformSettings(
+    {
+      website_name_en: websiteNameEn.trim(),
+      website_name_ar: websiteNameAr.trim()
+    },
     "Unable to save the brand settings"
   );
 }
-
-export { mapWeek };

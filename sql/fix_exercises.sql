@@ -1,4 +1,6 @@
-﻿-- One-shot fix for exercise descriptions + media paths.
+﻿-- Legacy one-shot repair for exercise descriptions + media paths.
+-- Fresh installs do not need this: the exercise seed migration inserts clean
+-- rows. Use only to repair an older database that already has exercises.
 -- Run this in the Supabase SQL Editor (Dashboard -> SQL Editor -> New query).
 
 -- 1) Remove exposed [ANIMATION_CODE] blocks from descriptions

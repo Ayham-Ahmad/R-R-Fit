@@ -11,7 +11,10 @@
 --   1. Deploy the function:  supabase functions deploy cleanup-proofs --no-verify-jwt
 --      (or disable "Enforce JWT verification" for cleanup-proofs in the Dashboard)
 --   2. Add the Edge Function secret CLEANUP_SECRET with the same value used below.
---   3. Run this script once in the Supabase SQL editor as the postgres role.
+--      This secret is REQUIRED for the scheduled job.
+--   3. Store the same value in Vault as shown below.
+--   4. Run this script once in the Supabase SQL editor as the postgres role.
+--   5. Replace <PROJECT_REF> with the hosted project reference before running.
 --
 -- Generate a secret (PowerShell):
 --   $b = New-Object byte[] 32
@@ -26,6 +29,9 @@
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
+create extension if not exists supabase_vault;
+
+begin;
 
 do $$
 begin
@@ -51,6 +57,15 @@ select cron.schedule(
   );
   $job$
 );
+
+do $$
+begin
+  if not exists (select 1 from cron.job where jobname = 'cleanup-workout-proofs' and active) then
+    raise exception 'cleanup-workout-proofs cron job was not scheduled';
+  end if;
+end $$;
+
+commit;
 
 -- Verify the schedule:
 --   select jobid, jobname, schedule, active

@@ -63,8 +63,8 @@ The workout record, status, comment, and coach note stay. Cleanup runs from the
 | --- | --- |
 | Frontend | Vanilla JS (ES modules) + Vite |
 | Auth / data | Supabase (Postgres, RLS, Storage, Auth) |
-| API | Serverless handlers in `api/` |
-| Backend tooling | Python 3.11+ (`backend/scripts/verify_db.py`) |
+| API | Browser-side data-access modules in `api/` using the Supabase anon client; Edge Functions are the server-side API |
+| Backend tooling | Python >=3.11,<3.15 (`backend/scripts/verify_db.py`) |
 | Hosting | Cloudflare Pages |
 | Styling | Hand-written CSS with light/dark themes |
 
@@ -89,14 +89,16 @@ Dev server: `http://localhost:5173`
 | `VITE_SUPABASE_ANON_KEY` | browser | Public anon key (safe to ship) |
 | `VITE_DEFAULT_LANG` | browser | `en` or `ar` |
 | `VITE_DEFAULT_THEME` | browser | Default theme id |
-| `SUPABASE_URL` | scripts | Supabase project URL |
-| `SUPABASE_ANON_KEY` | scripts | Read-only validation |
-| `SUPABASE_SERVICE_ROLE_KEY` | scripts | Admin operations — never ship this |
-| `SUPABASE_DB_URL` | scripts | Direct Postgres URL for migrations |
+| `SUPABASE_URL` | scripts / edge | Supabase project URL (legacy browser alias: `VITE_SUPABASE_URL`) |
+| `SUPABASE_ANON_KEY` | scripts | Read-only validation fallback (aliases: `ANON_KEY`, `VITE_SUPABASE_ANON_KEY`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | scripts / edge | Required for structural validation and admin bootstrap (legacy edge alias: `SERVICE_ROLE_KEY`) — never ship this |
+| `SUPABASE_DB_URL` | scripts | Direct Postgres URL, required **only** for `backend:apply` / `backend:seed` (alias: `DATABASE_URL`) |
+| `ADMIN_PASSWORD` | scripts | Optional bootstrap input; prefer this or `--password-stdin` over the deprecated `--password` flag |
+| `CLEANUP_SECRET` | edge function | **Required** shared secret for scheduled cleanup; also store the same value in Vault |
+| `SUPABASE_SECRET_KEYS` | edge function | Optional/new-format JSON key map; legacy fallbacks are the service-role variables |
 | `APP_ORIGIN` | edge function | Comma-separated allowed origins |
-| `CLEANUP_SECRET` | edge function (optional) | Shared secret for manual cleanup invocations |
 
-Only `VITE_*` values are bundled into the frontend. A service-role key must never appear in frontend code or a `VITE_*` variable.
+Only `VITE_*` values are bundled into the frontend. A service-role key must never appear in frontend code or a `VITE_*` variable. The `/docs/` directory is git-ignored for local notes; `/data/` is ignored for local exercise data.
 
 ---
 
@@ -108,19 +110,27 @@ Only `VITE_*` values are bundled into the frontend. A service-role key must neve
 | `npm run build` | Regenerate exercise thumbnails, then build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run thumbs` | Regenerate static exercise thumbnails only |
-| `npm run backend:validate` | Validate the remote schema |
-| `npm run backend:apply` | Apply migrations (requires `SUPABASE_DB_URL`) |
-| `npm run backend:seed` | Seed reference data |
+| `npm run backend:setup` | Install pinned Python dependencies into the virtualenv |
+| `npm run backend:validate` | Validate the remote schema (reduced checks with only an anon key) |
+| `npm run backend:validate:strict` | Validate and fail on security/config warnings |
+| `npm run backend:apply` | Apply migrations in filename order (requires `SUPABASE_DB_URL`); never applies `seed.sql` |
+| `npm run backend:seed` | Apply `seed.sql` only (requires `SUPABASE_DB_URL`) |
 | `npm run backend:bootstrap-admin` | Create the first admin account |
 
-Backend scripts use the isolated interpreter at `.venv\Scripts\python.exe`.
+All backend scripts call `scripts/run_backend_py.mjs`, a portable wrapper that
+picks `.venv/Scripts/python.exe`, `.venv/bin/python`, or `python` from PATH.
+Pass extra flags after `--`, for example
+`npm run backend:apply -- --dry-run` for a no-write preflight or
+`npm run backend:bootstrap-admin -- --email admin@example.com --reset-password`.
+Dependencies are pinned in `backend/requirements.txt`; Python >=3.11,<3.15 is
+supported (verified on 3.14).
 
 ---
 
 ## Project structure
 
 ```
-api/                     Serverless API handlers
+api/                     Browser-side data-access modules (Supabase anon client)
   auth.api.js            Sign in, sign out, password reset
   coach.api.js           Coach workspace, schedules, exercises
   trainee.api.js         Trainee workspace, proof submission
@@ -129,14 +139,15 @@ api/                     Serverless API handlers
   client.js              Supabase client, row mappers, shared helpers
 
 backend/
+  requirements.txt       Pinned Python dependencies
   scripts/verify_db.py   Validate / apply / seed / bootstrap
   supabase/
-    migrations/          Ordered SQL migrations
-    functions/           Edge functions (admin-users, cleanup-proofs)
-    schema.sql           Base schema
-    rls_policies.sql     Row-level security
-    rpc_functions.sql    Database functions
-    seed.sql             Reference data
+    migrations/          Ordered SQL migrations (the source of truth)
+    functions/           Edge functions (server-side: admin-users, cleanup-proofs)
+    schema.sql           Superseded reference copy - do not apply manually
+    rls_policies.sql     Superseded reference copy - do not apply manually
+    rpc_functions.sql    Superseded reference copy - do not apply manually
+    seed.sql             Reference data (platform settings + categories)
 
 frontend/
   index.html             App shell
@@ -148,19 +159,18 @@ frontend/
 
 scripts/
   make_thumbs.mjs        Build static thumbnails from animations
-  check_db_access.mjs    Quick Supabase REST diagnostics
+  run_backend_py.mjs     Portable Python wrapper for backend:* scripts
 
-sql/
-  fix_exercises.sql      One-shot description + media fix (run manually)
-  update_media_paths.sql Media-only statements
-  clean_animation_codes.sql Description-only statements
-  relax_proof_requirements.sql Screenshot-only proof trigger
-  proof_channels_and_cleanup.sql WhatsApp channel, coach approval, 10 MB bucket
-  schedule_cleanup.sql   Daily proof-cleanup cron schedule
+sql/                     Legacy/manual helpers only
+  fix_exercises.sql      Legacy one-shot repair (media paths + descriptions)
+  schedule_cleanup.sql   Daily proof-cleanup cron schedule (requires CLEANUP_SECRET)
 
 data/                    Local-only exercise data (git-ignored)
 docs/                    Local notes (git-ignored)
 ```
+
+Other root `sql/` files have been superseded by migrations in
+`backend/supabase/migrations/`; do not recreate or run them on a fresh project.
 
 ---
 
@@ -175,39 +185,60 @@ Each exercise has one animated SVG in `frontend/public/exercises/ex_exN.svg` usi
 - Thumbnails are generated automatically by `npm run build`; use `npm run thumbs` after editing an animation without a full build.
 - Supabase `exercises.media_path` must point at `exercises/ex_exN.svg`. Paths such as `assets/...`, `data:...`, or Storage URLs bypass the bundled files.
 
-### One-time database fix
+### Legacy repair
 
-Run **`sql/fix_exercises.sql`** once in the Supabase SQL Editor. It:
+`sql/fix_exercises.sql` is a legacy one-shot repair for older databases. It:
 
 1. Removes leaked `[ANIMATION_CODE]` blocks from English and Arabic descriptions.
 2. Points all 50 exercises at their bundled animation.
 
-The same statements are available separately as `update_media_paths.sql` and `clean_animation_codes.sql`.
+Fresh projects get exercises from `backend/supabase/migrations/20261125000200_seed_exercises.sql`,
+so this file is not part of normal setup.
 
 ---
 
 ## Database setup
 
-1. Create a Supabase project.
-2. Put the project URL and keys in `.env`.
-3. Apply the schema and migrations:
+1. Create a Supabase project and copy `.env.example` to `.env`.
+2. Fill in `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL`.
+   The anon key is only a fallback for reduced read-only validation; the direct
+   Postgres URL is required **only** for `backend:apply` and `backend:seed`.
+   Keep every service credential out of `VITE_*` variables.
+3. Install dependencies and apply migrations, then seed reference data:
 
    ```powershell
-   .venv\Scripts\python.exe -m pip install -r backend/requirements.txt
-   npm run backend:validate
+   npm install
+   npm run backend:setup
    npm run backend:apply
    npm run backend:seed
-   .venv\Scripts\python.exe backend/scripts/verify_db.py --bootstrap-admin `
-     --email admin@example.com --password "a-strong-password" `
-     --name-en "Studio Admin" --name-ar "مديرة الاستوديو"
+   npm run backend:validate:strict
    ```
 
-4. Run `sql/fix_exercises.sql` if the exercise media paths have not been set yet.
-5. Run `sql/proof_channels_and_cleanup.sql` to enable the WhatsApp proof channel, coach approval without a screenshot, and the 10 MB proof bucket.
-6. Apply `backend/supabase/migrations/20261117000100_coach_about.sql` for the coach **About me** page (bio, links, profile photo, certificates, and the private `coach-media` bucket).
-7. Apply `backend/supabase/migrations/20261123000100_lock_proof_metadata.sql` so trainees cannot edit coach-owned verification notes or proof purge metadata.
+   `backend:apply` runs only `backend/supabase/migrations/*.sql` in strict
+   filename order (including `20261125000200_seed_exercises.sql`, which populates
+   the exercise library). It does **not** apply the superseded root copies
+   `schema.sql`, `rls_policies.sql`, `rpc_functions.sql`, and it does **not** run
+   `seed.sql` — that is the separate `backend:seed` step for platform settings and
+   categories. Add `-- --dry-run` to either command for a no-write preflight.
+4. Create the first admin account. The password can come from `ADMIN_PASSWORD`,
+   `--password-stdin`, or an interactive hidden prompt; `--password` still works
+   but is deprecated and never echoed:
 
-Migrations live in `backend/supabase/migrations/` and are applied in filename order. `verify_db.py --apply` requires `SUPABASE_DB_URL`.
+   ```powershell
+   $env:ADMIN_PASSWORD = "a-strong-password"
+   npm run backend:bootstrap-admin -- --email admin@example.com `
+     --name-en "Studio Admin" --name-ar "مديرة الاستوديو"
+   # or: Get-Content admin-password.txt | npm run backend:bootstrap-admin -- --email admin@example.com --password-stdin
+   ```
+
+   To rotate the password of an existing admin, add `--reset-password` (or
+   supply the new value via `--password-stdin`, or set `ADMIN_RESET_PASSWORD=1`).
+   Promoting an existing non-admin profile requires `--force`.
+
+No root `sql/` file is part of normal setup. `sql/fix_exercises.sql` is only a
+legacy repair, and `sql/schedule_cleanup.sql` is the separate cron schedule
+described under [Proof cleanup](#proof-cleanup). Local notes under `docs/` and
+data under `data/` are git-ignored.
 
 ### Coach About page
 
@@ -233,7 +264,8 @@ supabase functions deploy cleanup-proofs --no-verify-jwt
 ```
 
 This job is called by `pg_cron`, not by a logged-in user, so JWT verification is
-disabled deliberately. It is protected by a dedicated shared secret instead:
+disabled deliberately. It is protected by a dedicated shared secret, which is
+**required** for the scheduled job:
 
 1. Generate a strong secret and store it as the Edge Function secret
    `CLEANUP_SECRET` (Supabase Dashboard → Edge Functions → Secrets).
@@ -291,7 +323,8 @@ Push to `master` triggers a new deployment. The build regenerates thumbnails bef
 
 This is a live application. Please report security issues privately instead of
 opening a public issue — see [SECURITY.md](SECURITY.md) for the reporting
-process and scope.
+process, scope, and key rotation checklist. After rotating credentials, re-run
+`npm run backend:validate:strict`.
 
 ## License
 

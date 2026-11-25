@@ -1,6 +1,5 @@
 import {
   DAY_KEYS,
-  buildSchedule,
   getAuthUser,
   getCategories,
   getExercises,
@@ -14,24 +13,63 @@ import {
   normalizeLinkUrl,
   normalizePhone,
   requireSupabase,
-  unwrap
+  setProfileAccess,
+  unwrap,
+  updatePlatformSettings
 } from "./client.js";
 
-function mapArchiveRow(row) {
-  return {
-    weekEn: row.week_en,
-    weekAr: row.week_ar,
-    traineeId: row.trainee_id,
-    nameEn: row.name_en,
-    nameAr: row.name_ar,
-    avatarStyle: row.avatar_style,
-    completed: row.completed,
-    total: row.total,
-    percent: row.percent,
-    score: row.score,
-    rewardEn: row.reward_en,
-    rewardAr: row.reward_ar
-  };
+const EXERCISE_PRESET_KEYS = new Set([
+  "squat",
+  "hipthrust",
+  "plank",
+  "latpulldown",
+  "shoulderpress",
+  "cardio"
+]);
+
+function normalizePresetKey(value, { fallback = null } = {}) {
+  const key = String(value ?? "").trim();
+  if (!key) {
+    if (fallback) return fallback;
+    throw new Error("EXERCISE_PRESET_INVALID");
+  }
+  if (!EXERCISE_PRESET_KEYS.has(key)) throw new Error("EXERCISE_PRESET_INVALID");
+  return key;
+}
+
+function validateExerciseMediaPath(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") throw new Error("EXERCISE_MEDIA_PATH_INVALID");
+  const path = value.trim();
+  if (/^library\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:webp|gif|png|jpg)$/i.test(path)) {
+    return path;
+  }
+  if (/^\/?(?:assets\/)?exercises\/ex_ex\d+\.svg$/i.test(path)) return path;
+  throw new Error("EXERCISE_MEDIA_PATH_INVALID");
+}
+
+async function removeStorageObject(client, bucket, path) {
+  if (!path) return;
+  const { error } = await client.storage.from(bucket).remove([path]);
+  if (error) throw new Error(error.message);
+}
+
+// Defense in depth: RLS enforces assignment, but reject non-privileged callers
+// before any coach mutation runs.
+async function requireCoachManageTrainee(traineeId) {
+  if (!traineeId) throw new Error("TARGET_NOT_FOUND");
+  const client = requireSupabase();
+  const user = await getAuthUser();
+  if (!user) throw new Error("AUTH_REQUIRED");
+  const [{ data: actor, error: actorError }, { data: trainee, error: traineeError }] = await Promise.all([
+    client.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    client.from("profiles").select("id, role").eq("id", traineeId).maybeSingle()
+  ]);
+  if (actorError) throw new Error(actorError.message);
+  if (traineeError) throw new Error(traineeError.message);
+  if (!actor || !["coach", "admin"].includes(actor.role)) throw new Error("COACH_REQUIRED");
+  if (!trainee || trainee.role !== "trainee") throw new Error("TARGET_NOT_FOUND");
+  return user;
 }
 
 function deriveRecentActivity(profiles, workouts) {
@@ -69,9 +107,8 @@ export async function loadCoachWorkspace() {
     getAuthUser()
   ]);
 
-  const [profilesResult, winnersResult, activityResult, certificatesResult] = await Promise.all([
+  const [profilesResult, activityResult, certificatesResult] = await Promise.all([
     client.from("profiles").select("*").eq("role", "trainee").order("name_en", { ascending: true }),
-    client.rpc("get_leaderboard_archive"),
     client.from("activity_events").select("*").order("created_at", { ascending: false }).limit(20),
     user?.id
       ? client
@@ -84,7 +121,6 @@ export async function loadCoachWorkspace() {
   ]);
 
   const profiles = unwrap(profilesResult, "Unable to load trainees") || [];
-  const archiveRows = unwrap(winnersResult, "Unable to load previous winners") || [];
   const activityRows = unwrap(activityResult, "Unable to load activity") || [];
   const certificateRows = unwrap(certificatesResult, "Unable to load certificates") || [];
 
@@ -149,39 +185,20 @@ export async function loadCoachWorkspace() {
     weeks,
     currentWeek,
     trainees,
-    previousWinners: archiveRows.map(mapArchiveRow),
-    recentActivities: activities,
-    saasCoaches: [
-      {
-        id: "main-coach",
-        nameEn: settings.coachNameEn,
-        nameAr: settings.coachNameAr,
-        specialtyEn: "Strength & Postpartum Fitness",
-        specialtyAr: "تمارين المقاومة ولياقة ما بعد الولادة",
-        traineesCount: profiles.length,
-        active: true
-      }
-    ]
+    recentActivities: activities
   };
 }
 
 export async function toggleTraineeAccess(traineeId, access) {
-  const client = requireSupabase();
-  return unwrap(
-    await client
-      .from("profiles")
-      .update({ subscription_active: access, plan_unlocked: access })
-      .eq("id", traineeId)
-      .select("id, subscription_active, plan_unlocked")
-      .single(),
-    "Unable to update trainee access"
-  );
+  await requireCoachManageTrainee(traineeId);
+  return setProfileAccess(traineeId, access);
 }
 
 export async function updateTraineeRecurrence(traineeId, recurrence, days) {
   if (!["weekly", "selected_days", "daily"].includes(recurrence)) {
     throw new Error("Invalid recurrence pattern");
   }
+  await requireCoachManageTrainee(traineeId);
   const validDays = (days || []).filter((day) => DAY_KEYS.includes(day));
   const client = requireSupabase();
   return unwrap(
@@ -197,6 +214,7 @@ export async function updateTraineeRecurrence(traineeId, recurrence, days) {
 
 export async function addWorkoutToDay({ traineeId, dayKey, exerciseId, weekId }) {
   if (!DAY_KEYS.includes(dayKey)) throw new Error("Invalid training day");
+  await requireCoachManageTrainee(traineeId);
   const client = requireSupabase();
   const week = weekId ? { id: weekId } : await getLiveWeek();
   if (!week) throw new Error("NO_LIVE_WEEK");
@@ -247,7 +265,10 @@ export async function addWorkoutToDay({ traineeId, dayKey, exerciseId, weekId })
       { onConflict: "trainee_id,week_id,day_key" }
     );
   if (daySetting.error) {
-    await client.from("scheduled_workouts").delete().eq("id", inserted.id);
+    const { error: rollbackError } = await client.from("scheduled_workouts").delete().eq("id", inserted.id);
+    if (rollbackError) {
+      throw new Error(`${daySetting.error.message} (rollback failed: ${rollbackError.message})`);
+    }
     throw new Error(daySetting.error.message);
   }
 
@@ -257,9 +278,10 @@ export async function addWorkoutToDay({ traineeId, dayKey, exerciseId, weekId })
 export async function removeWorkout(workoutId) {
   const client = requireSupabase();
   const existing = unwrap(
-    await client.from("scheduled_workouts").select("status").eq("id", workoutId).single(),
+    await client.from("scheduled_workouts").select("status, trainee_id").eq("id", workoutId).single(),
     "Unable to load the workout"
   );
+  await requireCoachManageTrainee(existing.trainee_id);
   if (existing.status === "completed") throw new Error("WORKOUT_COMPLETED_LOCKED");
   const { error } = await client.from("scheduled_workouts").delete().eq("id", workoutId);
   if (error) throw new Error(error.message);
@@ -267,6 +289,7 @@ export async function removeWorkout(workoutId) {
 
 export async function setRestDay({ traineeId, weekId, dayKey, isRestDay }) {
   if (!DAY_KEYS.includes(dayKey)) throw new Error("Invalid training day");
+  await requireCoachManageTrainee(traineeId);
   const client = requireSupabase();
   const week = weekId ? { id: weekId } : await getLiveWeek();
   if (!week) throw new Error("NO_LIVE_WEEK");
@@ -308,7 +331,7 @@ export async function setRestDay({ traineeId, weekId, dayKey, isRestDay }) {
       .eq("day_key", dayKey)
       .neq("status", "completed");
     if (error) {
-      await client
+      const { error: rollbackError } = await client
         .from("trainee_day_settings")
         .upsert(
           {
@@ -319,6 +342,9 @@ export async function setRestDay({ traineeId, weekId, dayKey, isRestDay }) {
           },
           { onConflict: "trainee_id,week_id,day_key" }
         );
+      if (rollbackError) {
+        throw new Error(`${error.message} (rollback failed: ${rollbackError.message})`);
+      }
       throw new Error(error.message);
     }
   }
@@ -333,6 +359,14 @@ export async function updateWorkout(workoutId, updates) {
   });
   if (!Object.keys(allowed).length) return null;
   const client = requireSupabase();
+  const { data: target, error: targetError } = await client
+    .from("scheduled_workouts")
+    .select("trainee_id")
+    .eq("id", workoutId)
+    .maybeSingle();
+  if (targetError) throw new Error(targetError.message);
+  if (!target) throw new Error("MISSING_WORKOUT");
+  await requireCoachManageTrainee(target.trainee_id);
   return unwrap(
     await client.from("scheduled_workouts").update(allowed).eq("id", workoutId).select("*").single(),
     "Unable to update the workout"
@@ -344,35 +378,55 @@ export async function updateWorkout(workoutId, updates) {
 export async function approveWorkout(workoutId) {
   if (!workoutId) throw new Error("MISSING_WORKOUT");
   const client = requireSupabase();
-  const result = unwrap(
-    await client
-      .from("scheduled_workouts")
-      .update({
-        status: "completed",
-        verification_status: "verified",
-        verification_note: null
-      })
-      .eq("id", workoutId)
-      .in("status", ["pending", "completed"])
-      .select("*")
-      .single(),
-    "Unable to approve the workout"
-  );
+  const { data: target, error: targetError } = await client
+    .from("scheduled_workouts")
+    .select("trainee_id")
+    .eq("id", workoutId)
+    .maybeSingle();
+  if (targetError) throw new Error(targetError.message);
+  if (!target) throw new Error("PROOF_NOT_FOUND");
+  await requireCoachManageTrainee(target.trainee_id);
 
-  const user = await client.auth.getUser();
-  const { data: traineeRow } = await client
+  let result;
+  try {
+    result = unwrap(
+      await client
+        .from("scheduled_workouts")
+        .update({
+          status: "completed",
+          verification_status: "verified",
+          verification_note: null
+        })
+        .eq("id", workoutId)
+        .in("status", ["pending", "completed"])
+        .select("*")
+        .single(),
+      "Unable to approve the workout"
+    );
+  } catch (error) {
+    if (error?.code === "PGRST116") throw new Error("PROOF_NOT_FOUND");
+    throw error;
+  }
+
+  const { data: authData, error: authError } = await client.auth.getUser();
+  if (authError) throw new Error(authError.message);
+  if (!authData?.user) throw new Error("AUTH_REQUIRED");
+
+  const { data: traineeRow, error: traineeError } = await client
     .from("profiles")
     .select("name_en, name_ar")
     .eq("id", result.trainee_id)
     .maybeSingle();
+  if (traineeError) throw new Error(traineeError.message);
 
-  await client.from("activity_events").insert({
-    coach_id: user?.data?.user?.id || null,
+  const { error: activityError } = await client.from("activity_events").insert({
+    coach_id: authData.user.id,
     trainee_id: result.trainee_id,
     badge_type: "success",
     text_en: `Coach approved ${traineeRow?.name_en || "a trainee"}'s workout.`,
     text_ar: `اعتمدت المدربة تمرين المتدربة ${traineeRow?.name_ar || ""}.`
   });
+  if (activityError) throw new Error(activityError.message);
 
   return result;
 }
@@ -426,7 +480,7 @@ export async function createExercise({
           reps_ar: repsAr || "١٢ تكرار",
           rest_en: restEn || "60 sec",
           rest_ar: restAr || "٦٠ ثانية",
-          preset_key: presetKey || null,
+          preset_key: normalizePresetKey(presetKey, { fallback: "squat" }),
           media_path: mediaPath
         })
         .select("*")
@@ -434,9 +488,7 @@ export async function createExercise({
       "Unable to create the exercise"
     );
   } catch (error) {
-    if (mediaPath) {
-      await client.storage.from("exercise-media").remove([mediaPath]);
-    }
+    await removeStorageObject(client, "exercise-media", mediaPath);
     throw error;
   }
 }
@@ -468,12 +520,15 @@ export async function updateExercise(exerciseId, updates = {}) {
     repsAr: "reps_ar",
     restEn: "rest_en",
     restAr: "rest_ar",
-    presetKey: "preset_key",
-    isActive: "is_active",
-    mediaPath: "media_path"
+    isActive: "is_active"
   };
   Object.keys(updates).forEach((key) => {
-    if (map[key] !== undefined && updates[key] !== undefined) {
+    if (updates[key] === undefined) return;
+    if (key === "presetKey") {
+      allowed.preset_key = normalizePresetKey(updates[key]);
+    } else if (key === "mediaPath") {
+      allowed.media_path = validateExerciseMediaPath(updates[key]);
+    } else if (map[key] !== undefined) {
       allowed[map[key]] = updates[key];
     }
   });
@@ -496,22 +551,16 @@ export async function savePlatformSettings(settings) {
   if (!settings.websiteNameEn?.trim() || !settings.websiteNameAr?.trim()) {
     throw new Error("BRAND_NAMES_REQUIRED");
   }
-  const client = requireSupabase();
-  return unwrap(
-    await client
-      .from("platform_settings")
-      .update({
-        website_name_en: settings.websiteNameEn.trim(),
-        website_name_ar: settings.websiteNameAr.trim(),
-        coach_name_en: settings.coachNameEn.trim(),
-        coach_name_ar: settings.coachNameAr.trim(),
-        coach_email: settings.coachEmail?.trim() || "",
-        coach_phone: settings.coachPhone?.trim() || "",
-        whatsapp_phone: normalizePhone(settings.coachPhone)
-      })
-      .eq("id", 1)
-      .select("*")
-      .single(),
+  return updatePlatformSettings(
+    {
+      website_name_en: settings.websiteNameEn.trim(),
+      website_name_ar: settings.websiteNameAr.trim(),
+      coach_name_en: String(settings.coachNameEn ?? "").trim(),
+      coach_name_ar: String(settings.coachNameAr ?? "").trim(),
+      coach_email: settings.coachEmail?.trim() || "",
+      coach_phone: settings.coachPhone?.trim() || "",
+      whatsapp_phone: normalizePhone(settings.coachPhone)
+    },
     "Unable to save platform settings"
   );
 }
@@ -564,7 +613,7 @@ export async function saveCoachAbout({
     if (!allowed.includes(avatarFile.type)) throw new Error("AVATAR_FILE_TYPE");
     if (avatarFile.size > 25 * 1024 * 1024) throw new Error("AVATAR_FILE_TOO_LARGE");
     const extension = avatarFile.type.split("/")[1].replace("jpeg", "jpg");
-    uploadedPath = `${user.id}/avatar/${Date.now()}.${extension}`;
+    uploadedPath = `${user.id}/avatar/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await client.storage
       .from("coach-media")
       .upload(uploadedPath, avatarFile, { contentType: avatarFile.type, upsert: false });
@@ -573,28 +622,21 @@ export async function saveCoachAbout({
   }
 
   try {
-    const row = unwrap(
-      await client
-        .from("platform_settings")
-        .update({
-          coach_bio_en: String(bioEn || "").trim(),
-          coach_bio_ar: String(bioAr || "").trim(),
-          coach_links: cleanedLinks,
-          coach_avatar_path: avatarPath
-        })
-        .eq("id", 1)
-        .select("*")
-        .single(),
+    const row = await updatePlatformSettings(
+      {
+        coach_bio_en: String(bioEn || "").trim(),
+        coach_bio_ar: String(bioAr || "").trim(),
+        coach_links: cleanedLinks,
+        coach_avatar_path: avatarPath
+      },
       "Unable to save your About page"
     );
     if (previousAvatar && previousAvatar !== avatarPath) {
-      await client.storage.from("coach-media").remove([previousAvatar]);
+      await removeStorageObject(client, "coach-media", previousAvatar);
     }
     return row;
   } catch (error) {
-    if (uploadedPath) {
-      await client.storage.from("coach-media").remove([uploadedPath]);
-    }
+    await removeStorageObject(client, "coach-media", uploadedPath);
     throw error;
   }
 }
@@ -664,7 +706,7 @@ export async function addCoachCertificate({
       "Unable to save the certificate"
     );
   } catch (error) {
-    await client.storage.from("coach-media").remove([filePath]);
+    await removeStorageObject(client, "coach-media", filePath);
     throw error;
   }
 }
@@ -714,13 +756,11 @@ export async function updateCoachCertificate(id, updates = {}) {
       "Unable to update the certificate"
     );
     if (uploadedPath && existing.file_path) {
-      await client.storage.from("coach-media").remove([existing.file_path]);
+      await removeStorageObject(client, "coach-media", existing.file_path);
     }
     return row;
   } catch (error) {
-    if (uploadedPath) {
-      await client.storage.from("coach-media").remove([uploadedPath]);
-    }
+    await removeStorageObject(client, "coach-media", uploadedPath);
     throw error;
   }
 }
@@ -750,9 +790,7 @@ export async function deleteCoachCertificate(id) {
       .single(),
     "Unable to delete the certificate"
   );
-  if (existing.file_path) {
-    await client.storage.from("coach-media").remove([existing.file_path]);
-  }
+  await removeStorageObject(client, "coach-media", existing.file_path);
   return { id };
 }
 
@@ -774,23 +812,3 @@ export async function reorderCoachCertificates(ids = []) {
   if (failed) throw new Error(failed.error.message);
   return ids;
 }
-
-export async function getWorkoutProofDetails(traineeId) {
-  const client = requireSupabase();
-  const [profileResult, workoutsResult] = await Promise.all([
-    client.from("profiles").select("*").eq("id", traineeId).single(),
-    client
-      .from("scheduled_workouts")
-      .select("*")
-      .eq("trainee_id", traineeId)
-      .in("status", ["completed", "skipped"])
-      .order("completed_at", { ascending: false })
-      .limit(100)
-  ]);
-  return {
-    profile: unwrap(profileResult, "Unable to load trainee"),
-    workouts: unwrap(workoutsResult, "Unable to load proofs") || []
-  };
-}
-
-export { buildSchedule };

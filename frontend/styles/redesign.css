@@ -3872,6 +3872,28 @@ html[lang="ar"] .landing-footer-brand span {
   line-height: 1.65;
 }
 
+.landing-footer-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+}
+
+.landing-footer-contact button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(246, 243, 238, 0.78);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.landing-footer-contact button:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
 .landing-footer-actions {
   display: flex;
   align-items: center;

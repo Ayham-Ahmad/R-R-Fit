@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createDrawingAvatar, createStickmanGif } from "../frontend/js/graphics.js";
+import { errorI18nKey } from "./errors.js";
 
 const env = import.meta.env || {};
 const SUPABASE_URL = String(env.VITE_SUPABASE_URL || "").trim();
@@ -8,7 +9,27 @@ const SUPABASE_ANON_KEY = String(env.VITE_SUPABASE_ANON_KEY || "").trim();
 export const SUPABASE_CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-export const supabase = SUPABASE_CONFIGURED
+export const DEFAULT_PLATFORM_SETTINGS = {
+  websiteNameEn: "R&R Fit",
+  websiteNameAr: "رنا رويال فتنيس",
+  coachNameEn: "Coach",
+  coachNameAr: "المدربة",
+  coachEmail: "",
+  coachPhone: "",
+  whatsappPhone: "",
+  coachBioEn: "",
+  coachBioAr: "",
+  coachAvatarPath: null,
+  coachLinks: [],
+  leaderboardEnabled: true,
+  leaderboardPublished: true,
+  strictVerification: true,
+  leaderboardStage: "published",
+  rewardTitleEn: "One Extra Free Fitness Class",
+  rewardTitleAr: "حصة تدريبية مجانية إضافية واحدة"
+};
+
+const supabase = SUPABASE_CONFIGURED
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: true,
@@ -40,6 +61,80 @@ export function unwrap(result, fallbackMessage = "Database request failed") {
   return result?.data;
 }
 
+// Keeps the human-readable message (matched by the UI) while giving every
+// failure a stable error.code when we have one.
+export function createApiError(error, fallbackCode = "UNKNOWN_ERROR") {
+  const message = normalizeApiError(error) || fallbackCode;
+  const normalized = new Error(message);
+  normalized.code = typeof error?.code === "string" && error.code ? error.code : message;
+  normalized.i18nKey = errorI18nKey(normalized.code);
+  if (error?.details !== undefined) normalized.details = error.details;
+  if (error?.hint !== undefined) normalized.hint = error.hint;
+  return normalized;
+}
+
+export function throwApiError(error, fallbackCode) {
+  throw createApiError(error, fallbackCode);
+}
+
+export async function setProfileAccess(userId, active) {
+  if (!userId) throw new Error("TARGET_INVALID");
+  const client = requireSupabase();
+  return unwrap(
+    await client
+      .from("profiles")
+      .update({ subscription_active: Boolean(active), plan_unlocked: Boolean(active) })
+      .eq("id", userId)
+      .select("id, subscription_active, plan_unlocked")
+      .single(),
+    "Unable to update this user's access"
+  );
+}
+
+// Shared writer for the singleton settings row (id = 1). String values are
+// trimmed so every caller stores the same shape.
+export async function updatePlatformSettings(patch, fallbackMessage = "Unable to save settings") {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length) {
+    throw new Error("SETTINGS_PATCH_REQUIRED");
+  }
+  const values = {};
+  Object.entries(patch).forEach(([key, value]) => {
+    values[key] = typeof value === "string" ? value.trim() : value;
+  });
+  const client = requireSupabase();
+  return unwrap(
+    await client.from("platform_settings").update(values).eq("id", 1).select("*").single(),
+    fallbackMessage
+  );
+}
+
+export async function getProofSignedUrl(path, expiresIn = 300) {
+  if (!path) return null;
+  const client = requireSupabase();
+  const { data, error } = await client.storage.from("workout-proofs").createSignedUrl(path, expiresIn);
+  if (error) throw new Error(error.message);
+  return data?.signedUrl || null;
+}
+
+export function mapArchive(row) {
+  return {
+    weekEn: row.week_en,
+    weekAr: row.week_ar,
+    traineeId: row.trainee_id,
+    nameEn: row.name_en || "",
+    nameAr: row.name_ar || "",
+    avatarStyle: row.avatar_style || "sara",
+    avatarUrl: createDrawingAvatar(row.avatar_style || "sara"),
+    completed: Number(row.completed) || 0,
+    verified: Number(row.verified) || 0,
+    total: Number(row.total) || 0,
+    percent: Number(row.percent) || 0,
+    score: Number(row.score) || 0,
+    rewardEn: row.reward_en,
+    rewardAr: row.reward_ar
+  };
+}
+
 export function normalizePhone(phone) {
   let digits = String(phone || "").replace(/[^\d]/g, "");
   if (digits.startsWith("00")) digits = digits.slice(2);
@@ -47,7 +142,7 @@ export function normalizePhone(phone) {
   return digits;
 }
 
-export function formatPhone(phone) {
+function formatPhone(phone) {
   const digits = normalizePhone(phone);
   if (!digits) return "";
   if (digits.startsWith("966") && digits.length >= 12) {
@@ -71,27 +166,27 @@ export function mapWeek(row) {
   };
 }
 
-export function mapSettings(row) {
+function mapSettings(row) {
   const settings = row || {};
   return {
-    websiteNameEn: settings.website_name_en || "R&R Fit",
-    websiteNameAr: settings.website_name_ar || "رنا رويال فتنيس",
-    coachNameEn: settings.coach_name_en || "Coach",
-    coachNameAr: settings.coach_name_ar || "المدربة",
-    coachEmail: settings.coach_email || "",
-    coachPhone: settings.coach_phone || "",
-    whatsappPhone: normalizePhone(settings.whatsapp_phone || settings.coach_phone),
-    coachBioEn: settings.coach_bio_en || "",
-    coachBioAr: settings.coach_bio_ar || "",
-    coachAvatarPath: settings.coach_avatar_path || null,
-    coachLinks: normalizeLinks(settings.coach_links),
+    websiteNameEn: settings.website_name_en || DEFAULT_PLATFORM_SETTINGS.websiteNameEn,
+    websiteNameAr: settings.website_name_ar || DEFAULT_PLATFORM_SETTINGS.websiteNameAr,
+    coachNameEn: settings.coach_name_en || DEFAULT_PLATFORM_SETTINGS.coachNameEn,
+    coachNameAr: settings.coach_name_ar || DEFAULT_PLATFORM_SETTINGS.coachNameAr,
+    coachEmail: settings.coach_email || DEFAULT_PLATFORM_SETTINGS.coachEmail,
+    coachPhone: settings.coach_phone || DEFAULT_PLATFORM_SETTINGS.coachPhone,
+    whatsappPhone: normalizePhone(settings.whatsapp_phone || settings.coach_phone || DEFAULT_PLATFORM_SETTINGS.whatsappPhone),
+    coachBioEn: settings.coach_bio_en || DEFAULT_PLATFORM_SETTINGS.coachBioEn,
+    coachBioAr: settings.coach_bio_ar || DEFAULT_PLATFORM_SETTINGS.coachBioAr,
+    coachAvatarPath: settings.coach_avatar_path || DEFAULT_PLATFORM_SETTINGS.coachAvatarPath,
+    coachLinks: normalizeLinks(settings.coach_links || DEFAULT_PLATFORM_SETTINGS.coachLinks),
     mainCoachId: settings.main_coach_id || null,
     leaderboardEnabled: settings.leaderboard_enabled !== false,
     leaderboardPublished: settings.leaderboard_published !== false,
     strictVerification: settings.strict_verification !== false,
-    leaderboardStage: settings.leaderboard_stage || "published",
-    rewardTitleEn: settings.reward_title_en || "One Extra Free Fitness Class",
-    rewardTitleAr: settings.reward_title_ar || "حصة تدريبية مجانية إضافية واحدة"
+    leaderboardStage: settings.leaderboard_stage || DEFAULT_PLATFORM_SETTINGS.leaderboardStage,
+    rewardTitleEn: settings.reward_title_en || DEFAULT_PLATFORM_SETTINGS.rewardTitleEn,
+    rewardTitleAr: settings.reward_title_ar || DEFAULT_PLATFORM_SETTINGS.rewardTitleAr
   };
 }
 
@@ -115,7 +210,7 @@ export function normalizeLinkUrl(value) {
   }
 }
 
-export function normalizeLinks(raw) {
+function normalizeLinks(raw) {
   let list = raw;
   if (typeof raw === "string") {
     try {
@@ -218,7 +313,7 @@ export function mapExercise(row) {
   };
 }
 
-export function mapCategory(row) {
+function mapCategory(row) {
   return {
     id: row.id,
     en: row.name_en,
@@ -236,7 +331,7 @@ function isoDateForDay(weekStart, dayKey) {
   return date.toISOString().slice(0, 10);
 }
 
-export function mapWorkout(row) {
+function mapWorkout(row) {
   return {
     uid: row.id,
     exerciseId: row.exercise_id,
@@ -463,9 +558,9 @@ export async function invokeAccountFunction(payload) {
     } catch {
       // The edge function may be unreachable or returned a non-JSON response.
     }
-    throw new Error(message);
+    throwApiError(message);
   }
-  if (data?.error) throw new Error(data.error);
+  if (data?.error) throwApiError(data.error);
   return data;
 }
 

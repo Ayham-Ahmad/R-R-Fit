@@ -414,3 +414,14 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Backend Edge Functions.
+# admin-users validates the caller's Supabase JWT itself and must not be
+# callable without one.
+[functions.admin-users]
+verify_jwt = true
+
+# cleanup-proofs is called by pg_net with CLEANUP_SECRET (or a configured
+# server-side key), not a user JWT.
+[functions.cleanup-proofs]
+verify_jwt = false

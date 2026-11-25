@@ -165,30 +165,7 @@ body {
 button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 
 /* Top Presentation Switcher Bar */
-.demo-toolbar {
-  background: #1C191F;
-  color: #F5F2F6;
-  padding: 10px 24px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  font-size: 0.85rem;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-.demo-toolbar-group { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.demo-label { color: #B8B0C2; font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.demo-pill-group { display: inline-flex; background: rgba(255,255,255,0.08); padding: 3px; border-radius: 8px; gap: 4px; }
-.demo-pill { background: transparent; border: none; color: #D9D3E0; padding: 5px 11px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.82rem; transition: all 0.18s ease; }
-.demo-pill:hover { color: #FFFFFF; background: rgba(255,255,255,0.12); }
 .demo-pill.active { background: var(--primary); color: var(--primary-contrast); font-weight: 600; }
-.demo-select { background: rgba(255,255,255,0.12); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 6px; font-size: 0.82rem; cursor: pointer; }
-.demo-select option { background: #1C191F; color: #FFFFFF; }
-.lang-toggle-btn { background: rgba(255,255,255,0.14); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.28); padding: 5px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 
 /* Application Layout */
 .app-shell { display: grid; grid-template-columns: 265px 1fr; min-height: calc(100vh - 52px); }
@@ -223,7 +200,6 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .kpi-value { font-size: 1.9rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
 .kpi-sub { font-size: 0.8rem; color: var(--text-muted); }
 .grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; margin-bottom: 28px; }
-.section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .section-title { font-size: 1.18rem; font-weight: 700; color: var(--text-primary); }
 
 /* Buttons & Badges */
@@ -257,37 +233,9 @@ th { color: var(--text-secondary); font-weight: 600; font-size: 0.82rem; backgro
 .filter-bar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; align-items: center; justify-content: space-between; }
 
 /* Workout Builder & Stickman GIF Thumbnails */
-.builder-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; }
 .library-panel { background: var(--bg-surface); border: var(--card-border-width) solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-card); position: sticky; top: 72px; max-height: calc(100vh - 100px); overflow-y: auto; }
-.draggable-exercise { background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; cursor: grab; transition: all 0.2s ease; }
-.draggable-exercise:hover { border-color: var(--primary); box-shadow: var(--shadow-card); }
-.week-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; }
-.day-column { background: var(--bg-surface); border: var(--card-border-width) solid var(--border-color); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 12px; min-height: 250px; }
-.day-column.drag-over { border: 2px dashed var(--primary); background: var(--bg-accent-soft); }
-.day-column.rest-day-card { background: var(--secondary-soft); border-color: var(--secondary); }
-.scheduled-item { background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 
-.exercise-thumb {
-  width: 100%;
-  height: 155px;
-  border-radius: var(--radius-sm);
-  background: #FDF6F4;
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  margin-bottom: 10px;
-  cursor: pointer;
-  position: relative;
-}
-.exercise-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
 
-.hero-banner { background: var(--banner-gradient); border: var(--card-border-width) solid var(--border-color); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(20, 16, 24, 0.55); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 2000; }
 .modal-backdrop.open { display: flex; }
 .modal-box { background: var(--bg-surface); border-radius: var(--radius-lg); max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 28px; box-shadow: var(--shadow-hover); border: 1px solid var(--border-color); }
@@ -299,126 +247,16 @@ th { color: var(--text-secondary); font-weight: 600; font-size: 0.82rem; backgro
 /* ==========================================================================
    2. WEEKLY FITNESS LEADERBOARD & WINNER SPECIAL STYLING
    ========================================================================== */
-.winner-spotlight-card {
-  background: var(--winner-card-bg);
-  border: 2px solid var(--winner-border);
-  border-radius: var(--radius-lg);
-  padding: 30px;
-  margin-bottom: 28px;
-  box-shadow: var(--winner-glow);
-  position: relative;
-  overflow: hidden;
-}
 
-.winner-spotlight-layout {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 26px;
-  align-items: center;
-}
 
-.winner-avatar-wrapper {
-  position: relative;
-  width: 118px;
-  height: 118px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 12px auto 6px;
-  flex-shrink: 0;
-}
 
-.winner-avatar-ring {
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  padding: 5px;
-  background: var(--winner-ring);
-  box-shadow: 0 0 0 5px rgba(212, 175, 55, 0.16), 0 10px 24px rgba(180, 130, 40, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
 
-.winner-avatar-ring img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid var(--bg-surface);
-  background: var(--bg-surface);
-}
 
-.winner-crown-badge {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--winner-badge-bg);
-  color: #FFFFFF;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16);
-  border: 2px solid #FFFFFF;
-  z-index: 2;
-}
 
-.winner-rank-pill {
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--winner-badge-bg);
-  color: #FFFFFF;
-  font-size: 0.74rem;
-  font-weight: 700;
-  padding: 2px 12px;
-  border-radius: 999px;
-  border: 2px solid #FFFFFF;
-  white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-  z-index: 2;
-}
 
-.winner-reward-banner {
-  background: var(--reward-banner-bg);
-  border: 1px solid var(--winner-border);
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
-  margin-top: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 
-.winner-stats-box {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
 
-.winner-stat-pill {
-  background: var(--bg-surface);
-  border: 1px solid var(--winner-border);
-  border-radius: var(--radius-md);
-  padding: 12px 18px;
-  min-width: 120px;
-  text-align: center;
-  box-shadow: var(--shadow-card);
-}
 
-.leaderboard-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
 .leaderboard-row {
   background: var(--bg-surface);
@@ -487,61 +325,10 @@ th { color: var(--text-secondary); font-weight: 600; font-size: 0.82rem; backgro
   border-color: var(--bronze-accent);
 }
 
-.you-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--primary-contrast);
-  font-size: 0.73rem;
-  font-weight: 700;
-  margin-inline-start: 6px;
-}
 
-.motivation-strip {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-  border-inline-start: 4px solid var(--primary);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-}
 
-.fair-play-banner {
-  background: var(--secondary-soft);
-  border: 1px solid var(--secondary);
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
-  margin-bottom: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-}
 
-.proof-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--status-success-bg);
-  color: var(--status-success-text);
-}
 
-.proof-chip.unverified {
-  background: var(--status-warning-bg);
-  color: var(--status-warning-text);
-}
 
 @media (max-width: 1024px) {
   .app-shell { grid-template-columns: 1fr; }
@@ -551,9 +338,6 @@ th { color: var(--text-secondary); font-weight: 600; font-size: 0.82rem; backgro
   .sidebar-footer { display: none; }
   .builder-layout, .grid-2 { grid-template-columns: 1fr; }
   .library-panel { position: static; max-height: none; }
-  .winner-spotlight-layout { grid-template-columns: 1fr; text-align: center; }
-  .winner-stats-box { justify-content: center; }
-  .winner-reward-banner { justify-content: center; text-align: center; }
 }
 
 @media (max-width: 768px) {

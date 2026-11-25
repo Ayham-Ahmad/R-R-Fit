@@ -16,6 +16,7 @@ __pycache__/
 
 # Local data, notes and scratch files
 /data/
+/docs/
 /scratch/
 test_exercises*.html
 serve.mjs

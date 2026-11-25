@@ -39,6 +39,23 @@ begin
     end if;
   end if;
 
+  -- Coach/admin review metadata is processed before the finalized lock.
+  if v_role in ('coach', 'admin') then
+    if new.verification_status in ('verified', 'rejected') then
+      if old.status not in ('pending', 'completed') then
+        raise exception 'Only submitted workout proof can be verified or rejected';
+      end if;
+      new.status = 'completed';
+      new.completed_at = coalesce(old.completed_at, new.completed_at, now());
+      new.verified_by = coalesce(auth.uid(), new.verified_by);
+      new.verified_at = coalesce(new.verified_at, now());
+    else
+      new.verified_by = null;
+      new.verified_at = null;
+    end if;
+    return new;
+  end if;
+
   if v_role <> 'admin' and old.status <> 'pending' then
     if new.trainee_id is distinct from old.trainee_id
        or new.exercise_id is distinct from old.exercise_id
@@ -60,26 +77,13 @@ begin
        or new.proof_screenshot_path is distinct from old.proof_screenshot_path
        or new.proof_channel is distinct from old.proof_channel
        or new.completed_at is distinct from old.completed_at
+       or new.verification_status is distinct from old.verification_status
        or new.verification_note is distinct from old.verification_note
+       or new.verified_by is distinct from old.verified_by
+       or new.verified_at is distinct from old.verified_at
        or new.proof_purged_at is distinct from old.proof_purged_at then
       raise exception 'Finalized workout results are locked';
     end if;
-  end if;
-
-  if v_role in ('coach', 'admin') then
-    if new.verification_status in ('verified', 'rejected') then
-      if old.status not in ('pending', 'completed') then
-        raise exception 'Only submitted workout proof can be verified or rejected';
-      end if;
-      new.status = 'completed';
-      new.completed_at = coalesce(old.completed_at, new.completed_at, now());
-      new.verified_by = coalesce(auth.uid(), new.verified_by);
-      new.verified_at = coalesce(new.verified_at, now());
-    else
-      new.verified_by = null;
-      new.verified_at = null;
-    end if;
-    return new;
   end if;
 
   if auth.uid() is null or new.trainee_id is distinct from auth.uid() then
@@ -99,6 +103,8 @@ begin
      or new.notes_en is distinct from old.notes_en
      or new.notes_ar is distinct from old.notes_ar
      or new.verification_note is distinct from old.verification_note
+     or new.verified_by is distinct from old.verified_by
+     or new.verified_at is distinct from old.verified_at
      or new.proof_purged_at is distinct from old.proof_purged_at then
     raise exception 'Workout assignment fields are managed by the coach';
   end if;

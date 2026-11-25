@@ -15,9 +15,7 @@ values (
   true, true, true, 'published',
   'One Extra Free Fitness Class', 'حصة تدريبية مجانية إضافية واحدة'
 )
-on conflict (id) do update
-set website_name_en = excluded.website_name_en,
-    website_name_ar = excluded.website_name_ar;
+on conflict (id) do nothing;
 
 insert into public.categories (id, name_en, name_ar, sort_order)
 values
@@ -30,9 +28,6 @@ values
   ('arms', 'Arms', 'الذراعين', 70),
   ('cardio', 'Cardio', 'كارديو', 80),
   ('fullbody', 'Full Body', 'كامل الجسم', 90)
-on conflict (id) do update
-set name_en = excluded.name_en,
-    name_ar = excluded.name_ar,
-    sort_order = excluded.sort_order;
+on conflict (id) do nothing;
 
 commit;

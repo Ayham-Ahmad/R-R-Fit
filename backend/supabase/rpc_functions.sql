@@ -1,5 +1,6 @@
--- R&R Fit - secure database RPC functions
--- Run after schema.sql and rls_policies.sql.
+-- R&R Fit - consolidated secure database RPC snapshot.
+-- This file is documentation only. Apply backend/supabase/migrations/ in
+-- filename order with `supabase db push` or `npm run backend:apply`.
 begin;
 
 -- Privacy-safe weekly standings. Never returns email, phone, or storage paths.
@@ -126,6 +127,7 @@ returns table (
   name_ar text,
   avatar_style text,
   completed integer,
+  verified integer,
   total integer,
   percent integer,
   score integer,
@@ -138,13 +140,14 @@ security definer
 set search_path = public
 as $$
   select
-    w.short_en as week_en,
-    w.short_ar as week_ar,
+    coalesce(w.short_en, lw.week_en) as week_en,
+    coalesce(w.short_ar, lw.week_ar) as week_ar,
     lw.trainee_id,
     p.name_en,
     p.name_ar,
     p.avatar_style,
     lw.completed,
+    lw.verified,
     lw.total,
     lw.percent,
     lw.score,
@@ -183,6 +186,7 @@ declare
   v_winner record;
   v_start date;
   v_end date;
+  v_max_end date;
   v_label_en text;
   v_label_ar text;
   v_short_en text;
@@ -191,6 +195,15 @@ begin
   if not public.is_coach_or_admin() then
     raise exception 'Only a coach or admin can start a new leaderboard week';
   end if;
+
+  if (p_label_en is not null and btrim(p_label_en) = '')
+     or (p_label_ar is not null and btrim(p_label_ar) = '')
+     or (p_short_en is not null and btrim(p_short_en) = '')
+     or (p_short_ar is not null and btrim(p_short_ar) = '') then
+    raise exception 'Week labels cannot be blank';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('rr_leaderboard_week_rollover'));
 
   select w.id, s.main_coach_id, s.reward_title_en, s.reward_title_ar
   into v_old_week, v_coach_id, v_reward_en, v_reward_ar
@@ -208,12 +221,12 @@ begin
 
     if v_winner.trainee_id is not null and coalesce(v_winner.completed_count, 0) > 0 then
       insert into public.leaderboard_previous_winners (
-        week_id, trainee_id, completed, total, percent, score,
+        week_id, trainee_id, completed, verified, total, percent, score,
         reward_en, reward_ar, week_en, week_ar
       )
       select
-        v_old_week, v_winner.trainee_id, v_winner.completed_count, v_winner.total_count,
-        v_winner.percent, v_winner.score, v_reward_en, v_reward_ar,
+        v_old_week, v_winner.trainee_id, v_winner.completed_count, v_winner.verified_count,
+        v_winner.total_count, v_winner.percent, v_winner.score, v_reward_en, v_reward_ar,
         w.short_en, w.short_ar
       from public.leaderboard_weeks w
       where w.id = v_old_week;
@@ -230,19 +243,28 @@ begin
   end if;
 
   v_start := coalesce(v_start, date_trunc('week', current_date)::date);
+
+  select max(w.ends_on)
+  into v_max_end
+  from public.leaderboard_weeks w;
+
+  if v_max_end is not null and v_start <= v_max_end then
+    v_start := v_max_end + 1;
+  end if;
+
   v_end := v_start + 6;
 
   v_label_en := coalesce(
-    nullif(p_label_en, ''),
+    nullif(btrim(p_label_en), ''),
     to_char(v_start, 'FMMonth DD') || ' – ' || to_char(v_end, 'FMMonth DD') || ' (Current Week)'
   );
   v_label_ar := coalesce(
-    nullif(p_label_ar, ''),
+    nullif(btrim(p_label_ar), ''),
     'الأسبوع الحالي ' || to_char(v_start, 'DD/MM/YYYY') || ' – ' || to_char(v_end, 'DD/MM/YYYY')
   );
-  v_short_en := coalesce(nullif(p_short_en, ''), to_char(v_start, 'Mon DD') || ' – ' || to_char(v_end, 'Mon DD'));
+  v_short_en := coalesce(nullif(btrim(p_short_en), ''), to_char(v_start, 'Mon DD') || ' – ' || to_char(v_end, 'Mon DD'));
   v_short_ar := coalesce(
-    nullif(p_short_ar, ''),
+    nullif(btrim(p_short_ar), ''),
     to_char(v_start, 'DD/MM') || ' – ' || to_char(v_end, 'DD/MM')
   );
 

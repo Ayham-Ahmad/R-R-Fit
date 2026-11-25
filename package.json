@@ -9,10 +9,12 @@
     "thumbs": "node scripts/make_thumbs.mjs",
     "build": "node scripts/make_thumbs.mjs && node node_modules/vite/bin/vite.js build --config vite.config.js",
     "preview": "node node_modules/vite/bin/vite.js preview --config vite.config.js",
-    "backend:validate": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --validate",
-    "backend:apply": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --apply",
-    "backend:seed": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --seed",
-    "backend:bootstrap-admin": ".venv\\Scripts\\python.exe backend/scripts/verify_db.py --bootstrap-admin"
+    "backend:setup": "node scripts/run_backend_py.mjs -m pip install -r backend/requirements.txt",
+    "backend:validate": "node scripts/run_backend_py.mjs backend/scripts/verify_db.py --validate",
+    "backend:validate:strict": "node scripts/run_backend_py.mjs backend/scripts/verify_db.py --validate --strict",
+    "backend:apply": "node scripts/run_backend_py.mjs backend/scripts/verify_db.py --apply",
+    "backend:seed": "node scripts/run_backend_py.mjs backend/scripts/verify_db.py --seed",
+    "backend:bootstrap-admin": "node scripts/run_backend_py.mjs backend/scripts/verify_db.py --bootstrap-admin"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0"
