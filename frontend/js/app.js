@@ -488,6 +488,7 @@ function errorMessage(error) {
 }
 
 function applyDocumentPreferences() {
+  document.title = brandName();
   document.documentElement.lang = state.lang;
   document.documentElement.dir = state.lang === "ar" ? "rtl" : "ltr";
   document.documentElement.dataset.theme = state.theme;
@@ -1966,7 +1967,7 @@ function renderLeaderboardManagement() {
                 <span class="archive-week">${contextBilingual(winner, "weekEn", "weekAr")}</span>
               </div>
               <strong>${contextBilingual(winner, "nameEn", "nameAr")}</strong>
-              <span>${formatNumber(winner.completed)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
+              <span>${formatNumber(winner.verified ?? winner.completed)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
               <small>${contextBilingual(winner, "rewardEn", "rewardAr")}</small>
             </div>
           `).join("") : emptyState(t("noWinnersTitle"), t("noWinnersBody"))}
@@ -2621,7 +2622,7 @@ function renderTraineeLeaderboard() {
             <span class="avatar avatar-xl"><img src="${winner.trainee.avatarUrl}" alt="" /></span>
             <span class="eyebrow">${t("firstPlaceLabel")}</span>
             <h3>${contextBilingual(winner.trainee, "nameEn", "nameAr")}</h3>
-            <p>${formatNumber(winner.completed)} ${t("verifiedWorkoutsShort")} · ${formatNumber(winner.score)} ${t("pointsShort")}</p>
+            <p>${formatNumber(winner.verified ?? winner.completed)} ${t("verifiedWorkoutsShort")} · ${formatNumber(winner.score)} ${t("pointsShort")}</p>
           ` : `<div class="winner-empty">${icon("trophy")}<p>${t("noWinnerYet")}</p></div>`}
         </div>
       </section>
@@ -2653,7 +2654,7 @@ function renderTraineeLeaderboard() {
             <div class="archive-card">
               <div class="archive-top"><span class="avatar"><img src="${winner.avatarUrl}" alt="" /></span><span class="archive-week">${contextBilingual(winner, "weekEn", "weekAr")}</span></div>
               <strong>${contextBilingual(winner, "nameEn", "nameAr")}</strong>
-              <span>${formatNumber(winner.completed)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
+              <span>${formatNumber(winner.verified ?? winner.completed)} ${t("verifiedWorkoutsShort")} · ${winner.percent}%</span>
               <small>${contextBilingual(winner, "rewardEn", "rewardAr")}</small>
             </div>
           `).join("") : emptyState(t("noWinnersTitle"), t("noWinnersBody"))}
@@ -2801,8 +2802,10 @@ function readFormSnapshot(form) {
     if (element instanceof HTMLButtonElement) return;
     if (element instanceof HTMLInputElement && ["hidden", "submit", "button", "reset"].includes(element.type)) return;
     if (element.dataset?.noSnapshot === "true") return;
-    const isChoice = element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type);
-    const key = (element.name || element.id || "field") + (isChoice ? `#${index}` : "");
+    // Include the DOM index for every field, not just checkboxes/radios:
+    // repeatable rows (e.g. About-page links) reuse the same `name`, so a
+    // plain name key would let edits to one row overwrite another.
+    const key = (element.name || element.id || "field") + `#${index}`;
     snapshot[key] = formFieldValue(element);
   });
   return snapshot;
@@ -2815,17 +2818,40 @@ function formHasUnsavedChanges(form) {
   return JSON.stringify(readFormSnapshot(form)) !== JSON.stringify(initial);
 }
 
+function openDiscardConfirm() {
+  // Keep the original form mounted. Reusing openConfirm() would replace its
+  // DOM with the confirm dialog, so clicking Cancel lost every unsaved edit.
+  const existing = document.getElementById("discardConfirmBackdrop");
+  if (existing) existing.remove();
+  const backdrop = document.createElement("div");
+  backdrop.id = "discardConfirmBackdrop";
+  backdrop.className = "modal-backdrop open";
+  backdrop.style.zIndex = "10002";
+  backdrop.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t("dialogLabel"))}">
+      <form data-form="discard-confirm" data-no-snapshot="true">
+        ${modalHead(t("confirmDiscardTitle") || "Discard changes?")}
+        <div class="modal-body"><p class="confirm-copy">${t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?"}</p></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" type="button" data-action="discard-confirm-cancel">${t("cancelBtn")}</button>
+          <button class="btn btn-danger" type="button" data-action="discard-confirm-accept">${t("discardBtn") || "Discard"}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('[data-action="discard-confirm-cancel"]')?.addEventListener("click", () => backdrop.remove());
+  backdrop.querySelector('[data-action="discard-confirm-accept"]')?.addEventListener("click", () => {
+    backdrop.remove();
+    closeModal();
+  });
+}
+
 function requestCloseModal() {
   const box = document.getElementById("appModalContent");
   const form = box?.querySelector("form");
   if (formHasUnsavedChanges(form)) {
-    openConfirm({
-      title: t("confirmDiscardTitle") || "Discard changes?",
-      body: t("confirmDiscardBody") || "You have unsaved changes. Are you sure you want to close this form?",
-      label: t("discardBtn") || "Discard",
-      tone: "danger",
-      action: () => closeModal()
-    });
+    openDiscardConfirm();
     return;
   }
   closeModal();

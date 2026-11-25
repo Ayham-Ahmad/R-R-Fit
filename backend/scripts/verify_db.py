@@ -549,23 +549,26 @@ def bootstrap_admin(args: argparse.Namespace) -> None:
 
 
 def strip_outer_transaction(sql_text: str) -> str:
-    """Remove one outer BEGIN/COMMIT pair so psycopg owns the transaction.
+    """Remove one true top-level BEGIN/COMMIT pair so psycopg owns the transaction.
 
-    Only standalone statements are removed; BEGIN blocks inside PL/pgSQL
-    function bodies are left untouched.
+    The wrapper is only removed when it is the first and last meaningful line
+    of the file. Older migrations start a PL/pgSQL block with a standalone
+    ``begin;`` inside a function body; that must never be stripped.
     """
     lines = sql_text.splitlines()
-    begin_index = next((i for i, line in enumerate(lines) if _BEGIN_RE.match(line)), None)
-    commit_index = None
-    for index in range(len(lines) - 1, -1, -1):
-        if _COMMIT_RE.match(lines[index]):
-            commit_index = index
-            break
-    kept = [
-        line
-        for index, line in enumerate(lines)
-        if index != begin_index and index != commit_index
-    ]
+
+    def meaningful(line: str) -> bool:
+        stripped = line.strip()
+        return bool(stripped) and not stripped.startswith("--")
+
+    first = next((i for i, line in enumerate(lines) if meaningful(line)), None)
+    last = next((i for i in range(len(lines) - 1, -1, -1) if meaningful(lines[i])), None)
+    if first is None or last is None or first == last:
+        return sql_text
+    if not _BEGIN_RE.match(lines[first]) or not _COMMIT_RE.match(lines[last]):
+        return sql_text
+
+    kept = [line for index, line in enumerate(lines) if index not in (first, last)]
     return "\n".join(kept).strip() + "\n"
 
 

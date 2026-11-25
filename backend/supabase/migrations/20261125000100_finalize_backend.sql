@@ -266,7 +266,12 @@ where verified = 0 and coalesce(completed, 0) > 0;
 
 -- ---------------------------------------------------------------------------
 -- Archived winners keep their labels even when the source week is deleted.
+-- The return type gains `verified`, so CREATE OR REPLACE is not enough:
+-- Postgres cannot change a function's return type in place. Drop it first and
+-- re-apply its grants after recreation (see the bottom of this file).
 -- ---------------------------------------------------------------------------
+drop function if exists public.get_leaderboard_archive();
+
 create or replace function public.get_leaderboard_archive()
 returns table (
   week_en text,
